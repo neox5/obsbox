@@ -7,21 +7,18 @@ import (
 	"github.com/neox5/obsbox/internal/config"
 	"github.com/neox5/obsbox/internal/generator"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// Registry manages Prometheus metrics and their updates.
+// Registry manages Prometheus metrics collection.
 type Registry struct {
 	registry *prometheus.Registry
-	updaters []func()
 }
 
-// New creates a Prometheus registry and wires metrics to generator values.
+// New creates a Prometheus registry with a custom collector.
 func New(cfg *config.Config, gen *generator.Generator) (*Registry, error) {
 	reg := prometheus.NewRegistry()
-	factory := promauto.With(reg)
 
-	var updaters []func()
+	var metrics []metricDescriptor
 
 	for _, metricCfg := range cfg.Metrics {
 		val, exists := gen.GetValue(metricCfg.Value)
@@ -29,47 +26,38 @@ func New(cfg *config.Config, gen *generator.Generator) (*Registry, error) {
 			return nil, fmt.Errorf("value %q not found for metric %q", metricCfg.Value, metricCfg.Name)
 		}
 
+		var valueType prometheus.ValueType
 		switch metricCfg.Type {
 		case "counter":
-			counter := factory.NewCounter(prometheus.CounterOpts{
-				Name: metricCfg.Name,
-				Help: metricCfg.Help,
-			})
-			// Counter update function
-			updaters = append(updaters, func() {
-				current := float64(val.Value())
-				counter.Add(current)
-			})
-
+			valueType = prometheus.CounterValue
 		case "gauge":
-			gauge := factory.NewGauge(prometheus.GaugeOpts{
-				Name: metricCfg.Name,
-				Help: metricCfg.Help,
-			})
-			// Gauge update function
-			updaters = append(updaters, func() {
-				gauge.Set(float64(val.Value()))
-			})
-
+			valueType = prometheus.GaugeValue
 		default:
 			return nil, fmt.Errorf("unsupported metric type: %s", metricCfg.Type)
 		}
 
+		desc := prometheus.NewDesc(
+			metricCfg.Name,
+			metricCfg.Help,
+			nil, // no labels for now
+			nil, // no constant labels
+		)
+
+		metrics = append(metrics, metricDescriptor{
+			desc:      desc,
+			valueType: valueType,
+			value:     val,
+		})
+
 		slog.Info("registered metric", "name", metricCfg.Name, "type", metricCfg.Type)
 	}
 
+	collector := NewCollector(metrics)
+	reg.MustRegister(collector)
+
 	return &Registry{
 		registry: reg,
-		updaters: updaters,
 	}, nil
-}
-
-// Update executes all metric update functions.
-// This is currently unused but will be needed for push-based updates.
-func (r *Registry) Update() {
-	for _, update := range r.updaters {
-		update()
-	}
 }
 
 // PrometheusRegistry returns the underlying Prometheus registry.
