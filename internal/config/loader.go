@@ -36,36 +36,47 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("server path cannot be empty")
 	}
 
-	// Validate clock
-	if cfg.Clock.Interval <= 0 {
-		return fmt.Errorf("clock interval must be positive")
+	// Validate simulation config exists
+	if len(cfg.Simulation.Clocks) == 0 {
+		return fmt.Errorf("at least one clock must be defined")
 	}
-
-	// Validate sources exist
-	if len(cfg.Sources) == 0 {
+	if len(cfg.Simulation.Sources) == 0 {
 		return fmt.Errorf("at least one source must be defined")
 	}
+	if len(cfg.Simulation.Values) == 0 {
+		return fmt.Errorf("at least one value must be defined")
+	}
 
-	// Validate values reference valid sources or clones
-	for name, val := range cfg.Values {
+	// Validate source clock references
+	for srcName, src := range cfg.Simulation.Sources {
+		if _, exists := cfg.Simulation.Clocks[src.Clock]; !exists {
+			return fmt.Errorf("source %q references unknown clock %q", srcName, src.Clock)
+		}
+	}
+
+	// Validate value references (source or clone, not both)
+	for valName, val := range cfg.Simulation.Values {
+		if val.Source == "" && val.Clone == "" {
+			return fmt.Errorf("value %q must specify either source or clone", valName)
+		}
+		if val.Source != "" && val.Clone != "" {
+			return fmt.Errorf("value %q cannot specify both source and clone", valName)
+		}
 		if val.Source != "" {
-			if _, exists := cfg.Sources[val.Source]; !exists {
-				return fmt.Errorf("value %q references unknown source %q", name, val.Source)
+			if _, exists := cfg.Simulation.Sources[val.Source]; !exists {
+				return fmt.Errorf("value %q references unknown source %q", valName, val.Source)
 			}
 		}
-		if val.CloneFrom != "" {
-			if _, exists := cfg.Values[val.CloneFrom]; !exists {
-				return fmt.Errorf("value %q references unknown clone_from %q", name, val.CloneFrom)
+		if val.Clone != "" {
+			if _, exists := cfg.Simulation.Values[val.Clone]; !exists {
+				return fmt.Errorf("value %q references unknown clone %q", valName, val.Clone)
 			}
-		}
-		if val.Source == "" && val.CloneFrom == "" {
-			return fmt.Errorf("value %q must specify either source or clone_from", name)
 		}
 	}
 
 	// Validate metrics reference valid values
 	for _, metric := range cfg.Metrics {
-		if _, exists := cfg.Values[metric.Value]; !exists {
+		if _, exists := cfg.Simulation.Values[metric.Value]; !exists {
 			return fmt.Errorf("metric %q references unknown value %q", metric.Name, metric.Value)
 		}
 	}

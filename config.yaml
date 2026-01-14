@@ -2,33 +2,36 @@ server:
   port: 9090
   path: /metrics
 
-clock:
-  interval: 250ms
+simulation:
+  clocks:
+    clk_mqput:
+      type: periodic
+      interval: 250ms
 
-sources:
-  mqput_source:
-    type: random_int
-    min: 0
-    max: 10
+  sources:
+    src_mqput_events:
+      type: random_int
+      clock: clk_mqput
+      min: 0
+      max: 10
 
-values:
-  mqput_counter:
-    source: mqput_source
-    transforms:
-      - accumulate
+  values:
+    v_mqput_counter:
+      source: src_mqput_events
+      transforms:
+        - type: accumulate
 
-  mqput_gauge:
-    clone_from: mqput_counter
-    wrap: reset_on_read
-    reset_value: 0
+    v_mqput_count_reseted:
+      clone: v_mqput_counter
+      reset: on_read
 
 metrics:
-  - name: ibmmq_queue_mqput_total
+  - name: ibmmq_queue_mqput_count_total
     type: counter
     help: "Total MQ PUT operations since start"
-    value: mqput_counter
+    value: v_mqput_counter
 
-  - name: ibmmq_queue_mqput_recent
+  - name: ibmmq_queue_mqput_count_ratio
     type: gauge
     help: "Recent MQ PUT operations in window"
-    value: mqput_gauge
+    value: v_mqput_count_reseted
