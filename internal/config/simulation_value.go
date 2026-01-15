@@ -8,6 +8,26 @@ type TransformConfig struct {
 	Options map[string]interface{} `yaml:"options,omitempty"`
 }
 
+// UnmarshalYAML handles both string and object forms for transform config.
+func (t *TransformConfig) UnmarshalYAML(value *yaml.Node) error {
+	// Try simple string form first
+	var simple string
+	if err := value.Decode(&simple); err == nil {
+		t.Type = simple
+		t.Options = nil
+		return nil
+	}
+
+	// Fall back to full form
+	type transformConfig TransformConfig
+	var full transformConfig
+	if err := value.Decode(&full); err != nil {
+		return err
+	}
+	*t = TransformConfig(full)
+	return nil
+}
+
 // ResetConfig defines reset behavior for values.
 type ResetConfig struct {
 	Type  string `yaml:"type,omitempty"`

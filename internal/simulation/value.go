@@ -26,12 +26,19 @@ func CreateValue(
 
 		// Extend transforms if specified
 		if len(cfg.Transforms) > 0 {
-			transforms := buildTransforms(cfg.Transforms)
+			transforms, err := buildTransforms(cfg.Transforms)
+			if err != nil {
+				return nil, err
+			}
 			val = val.WithTransforms(transforms...)
 		}
 	} else {
 		// Create from source
-		val = createValueFromSource(src, cfg.Transforms)
+		var err error
+		val, err = createValueFromSource(src, cfg.Transforms)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Apply reset behavior
@@ -43,25 +50,28 @@ func CreateValue(
 }
 
 // createValueFromSource creates a value from a source with transforms.
-func createValueFromSource(src source.Publisher[int], transformCfgs []config.TransformConfig) value.Value[int] {
-	transforms := buildTransforms(transformCfgs)
-	return value.New(src, transforms...)
+func createValueFromSource(src source.Publisher[int], transformCfgs []config.TransformConfig) (value.Value[int], error) {
+	transforms, err := buildTransforms(transformCfgs)
+	if err != nil {
+		return nil, err
+	}
+	return value.New(src, transforms...), nil
 }
 
 // buildTransforms creates transform instances from configuration.
-func buildTransforms(transformCfgs []config.TransformConfig) []transform.Transformation[int] {
+func buildTransforms(transformCfgs []config.TransformConfig) ([]transform.Transformation[int], error) {
 	var transforms []transform.Transformation[int]
 
 	for _, tfCfg := range transformCfgs {
 		switch tfCfg.Type {
 		case "accumulate":
 			transforms = append(transforms, transform.NewAccumulate[int]())
-			// Future transforms with options can be added here
-			// case "moving_average":
-			//     window := tfCfg.Options["window"].(int)
-			//     transforms = append(transforms, transform.NewMovingAverage[int](window))
+		case "":
+			return nil, fmt.Errorf("transform type cannot be empty")
+		default:
+			return nil, fmt.Errorf("unknown transform type: %q", tfCfg.Type)
 		}
 	}
 
-	return transforms
+	return transforms, nil
 }

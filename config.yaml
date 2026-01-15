@@ -14,8 +14,7 @@ simulation:
   values:
     v_mqput_counter:
       source: src_mqput_events
-      transforms:
-        - type: accumulate
+      transforms: [accumulate]
 
     v_mqput_count_reseted:
       clone: v_mqput_counter
