@@ -8,8 +8,10 @@ import (
 
 	"github.com/neox5/obsbox/internal/config"
 	"github.com/neox5/obsbox/internal/metric"
+	"github.com/neox5/simv/value"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 )
@@ -17,9 +19,17 @@ import (
 // OTELExporter pushes metrics to an OTEL collector.
 type OTELExporter struct {
 	config        *config.OTELExportConfig
-	metrics       *metric.Registry
 	meterProvider *sdkmetric.MeterProvider
+	meter         otelmetric.Meter
+	instruments   []instrument
 	cancelFunc    context.CancelFunc
+}
+
+// instrument holds an OTEL observable instrument and its value reference.
+type instrument struct {
+	counter otelmetric.Int64ObservableCounter
+	gauge   otelmetric.Int64ObservableGauge
+	value   value.Value[int]
 }
 
 // NewOTELExporter creates a new OTEL exporter.
@@ -65,10 +75,76 @@ func NewOTELExporter(cfg *config.OTELExportConfig, metrics *metric.Registry) (*O
 		sdkmetric.WithReader(reader),
 	)
 
+	// Create meter
+	meter := meterProvider.Meter("obsbox")
+
+	// Register instruments for each metric
+	var instruments []instrument
+	for _, m := range metrics.Metrics() {
+		inst := instrument{value: m.Value}
+
+		switch m.Type {
+		case metric.MetricTypeCounter:
+			counter, err := meter.Int64ObservableCounter(
+				m.Name,
+				otelmetric.WithDescription(m.Help),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create counter %q: %w", m.Name, err)
+			}
+			inst.counter = counter
+
+		case metric.MetricTypeGauge:
+			gauge, err := meter.Int64ObservableGauge(
+				m.Name,
+				otelmetric.WithDescription(m.Help),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create gauge %q: %w", m.Name, err)
+			}
+			inst.gauge = gauge
+		}
+
+		instruments = append(instruments, inst)
+		slog.Info("registered otel metric", "name", m.Name, "type", m.Type)
+	}
+
+	// Register callback for all instruments
+	// Collect all observables for callback registration
+	var observables []otelmetric.Observable
+	for _, inst := range instruments {
+		if inst.counter != nil {
+			observables = append(observables, inst.counter)
+		}
+		if inst.gauge != nil {
+			observables = append(observables, inst.gauge)
+		}
+	}
+
+	_, err = meter.RegisterCallback(
+		func(ctx context.Context, observer otelmetric.Observer) error {
+			for _, inst := range instruments {
+				val := int64(inst.value.Value()) // Triggers reset_on_read if configured
+				if inst.counter != nil {
+					observer.ObserveInt64(inst.counter, val)
+				}
+				if inst.gauge != nil {
+					observer.ObserveInt64(inst.gauge, val)
+				}
+			}
+			return nil
+		},
+		observables...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register callback: %w", err)
+	}
+
 	return &OTELExporter{
 		config:        cfg,
-		metrics:       metrics,
 		meterProvider: meterProvider,
+		meter:         meter,
+		instruments:   instruments,
 	}, nil
 }
 
@@ -76,27 +152,17 @@ func NewOTELExporter(cfg *config.OTELExportConfig, metrics *metric.Registry) (*O
 func (e *OTELExporter) Start(ctx context.Context) error {
 	slog.Info("starting otel exporter",
 		"endpoint", e.config.Endpoint,
-		"read_interval", e.config.Interval.Read,
 		"push_interval", e.config.Interval.Push,
 	)
 
-	// Create cancellable context for read loop
+	// Create cancellable context
 	readCtx, cancel := context.WithCancel(ctx)
 	e.cancelFunc = cancel
 
-	// Start periodic value reading
-	ticker := time.NewTicker(e.config.Interval.Read)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			// Trigger value reads (will happen through collector scrape)
-			e.metrics.Read()
-		case <-readCtx.Done():
-			return nil
-		}
-	}
+	// Periodic reader handles push automatically
+	// Just wait for context cancellation
+	<-readCtx.Done()
+	return nil
 }
 
 // Stop gracefully stops the exporter.
