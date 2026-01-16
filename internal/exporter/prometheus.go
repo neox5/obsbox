@@ -8,19 +8,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/neox5/obsbox/internal/config"
 	"github.com/neox5/obsbox/internal/metric"
 	"github.com/neox5/simv/value"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-// Internal metric name definitions (both formats hardcoded)
-const (
-	promScrapesTotalUnderscore   = "obsbox_prometheus_scrapes_total"
-	promScrapesTotalDot          = "obsbox.prometheus.scrapes.total"
-	promScrapeDurationUnderscore = "obsbox_prometheus_scrape_duration_seconds"
-	promScrapeDurationDot        = "obsbox.prometheus.scrape.duration.seconds"
 )
 
 // PrometheusExporter provides HTTP server for Prometheus metrics.
@@ -29,10 +20,6 @@ type PrometheusExporter struct {
 	path         string
 	server       *http.Server
 	promRegistry *prometheus.Registry
-
-	// Internal metrics
-	scrapesTotal   prometheus.Counter
-	scrapeDuration prometheus.Histogram
 }
 
 // metricDescriptor holds metadata for a Prometheus metric.
@@ -54,7 +41,6 @@ func NewPrometheusExporter(
 	path string,
 	metrics *metric.Registry,
 	internalMetricsEnabled bool,
-	namingFormat config.NamingFormat,
 ) *PrometheusExporter {
 	promRegistry := prometheus.NewRegistry()
 
@@ -118,63 +104,30 @@ func NewPrometheusExporter(
 		},
 	}
 
-	// Register internal metrics if enabled
-	if internalMetricsEnabled {
-		// Select names based on format
-		scrapesName := promScrapesTotalUnderscore
-		durationName := promScrapeDurationUnderscore
-
-		if namingFormat == config.NamingFormatDot {
-			scrapesName = promScrapesTotalDot
-			durationName = promScrapeDurationDot
-		}
-		// native format uses underscore for Prometheus
-
-		e.scrapesTotal = prometheus.NewCounter(prometheus.CounterOpts{
-			Name: scrapesName,
-			Help: "Total number of scrape requests",
-		})
-
-		e.scrapeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-			Name:    durationName,
-			Help:    "Duration of scrape requests in seconds",
-			Buckets: prometheus.DefBuckets,
-		})
-
-		promRegistry.MustRegister(e.scrapesTotal, e.scrapeDuration)
-
-		slog.Info("registered prometheus internal metrics",
-			"format", namingFormat,
-			"scrapes_total", scrapesName,
-			"scrape_duration", durationName)
-	}
-
-	mux.Handle(path, e.instrumentedHandler(promhttp.HandlerFor(
+	// Create base handler
+	baseHandler := promhttp.HandlerFor(
 		promRegistry,
 		promhttp.HandlerOpts{
 			EnableOpenMetrics: true,
 		},
-	)))
+	)
+
+	// Conditionally wrap with instrumentation
+	var handler http.Handler
+	if internalMetricsEnabled {
+		handler = promhttp.InstrumentMetricHandler(promRegistry, baseHandler)
+		slog.Info("enabled prometheus internal metrics",
+			"metrics", []string{
+				"promhttp_metric_handler_requests_total",
+				"promhttp_metric_handler_requests_in_flight",
+			})
+	} else {
+		handler = baseHandler
+	}
+
+	mux.Handle(path, handler)
 
 	return e
-}
-
-// instrumentedHandler wraps the Prometheus handler with internal metrics instrumentation.
-func (e *PrometheusExporter) instrumentedHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		defer func() {
-			// Increment counter and observe duration atomically after completion
-			if e.scrapesTotal != nil {
-				e.scrapesTotal.Inc()
-			}
-			if e.scrapeDuration != nil {
-				e.scrapeDuration.Observe(time.Since(start).Seconds())
-			}
-		}()
-
-		next.ServeHTTP(w, r)
-	})
 }
 
 // Start begins serving HTTP requests.
