@@ -11,17 +11,23 @@ const (
 	// OTEL defaults
 	DefaultOTELReadInterval = 1 * time.Second
 	DefaultOTELPushInterval = 1 * time.Second
+	DefaultOTELTransport    = "grpc"
+	DefaultOTELHost         = "localhost"
+	DefaultOTELPortGRPC     = 4317
+	DefaultOTELPortHTTP     = 4318
 	DefaultServiceName      = "obsbox"
 	DefaultServiceVersion   = "dev"
 )
 
 // OTELExportConfig defines OTEL push settings.
 type OTELExportConfig struct {
-	Enabled  bool              `yaml:"enabled"`
-	Endpoint string            `yaml:"endpoint"`
-	Interval IntervalConfig    `yaml:"interval"`
-	Resource map[string]string `yaml:"resource,omitempty"`
-	Headers  map[string]string `yaml:"headers,omitempty"`
+	Enabled   bool              `yaml:"enabled"`
+	Transport string            `yaml:"transport"`
+	Host      string            `yaml:"host"`
+	Port      int               `yaml:"port"`
+	Interval  IntervalConfig    `yaml:"interval"`
+	Resource  map[string]string `yaml:"resource,omitempty"`
+	Headers   map[string]string `yaml:"headers,omitempty"`
 }
 
 // IntervalConfig defines read and push intervals for OTEL.
@@ -60,9 +66,28 @@ func (c *OTELExportConfig) Validate() error {
 		return nil
 	}
 
-	// Validate required fields
-	if c.Endpoint == "" {
-		return fmt.Errorf("otel endpoint cannot be empty when enabled")
+	// Apply transport default
+	if c.Transport == "" {
+		c.Transport = DefaultOTELTransport
+	}
+
+	// Validate transport
+	if c.Transport != "grpc" && c.Transport != "http" {
+		return fmt.Errorf("invalid transport: %s (must be grpc or http)", c.Transport)
+	}
+
+	// Apply host default
+	if c.Host == "" {
+		c.Host = DefaultOTELHost
+	}
+
+	// Apply port default based on transport
+	if c.Port == 0 {
+		if c.Transport == "grpc" {
+			c.Port = DefaultOTELPortGRPC
+		} else {
+			c.Port = DefaultOTELPortHTTP
+		}
 	}
 
 	// Apply interval defaults
@@ -85,4 +110,9 @@ func (c *OTELExportConfig) Validate() error {
 	}
 
 	return nil
+}
+
+// GetEndpoint returns the full endpoint address.
+func (c *OTELExportConfig) GetEndpoint() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }

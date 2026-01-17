@@ -132,7 +132,7 @@ export:
 **export:** Configures metric exposition
 
 - `prometheus`: Pull-based HTTP endpoint
-- `otel`: Push-based OTLP export (future)
+- `otel`: Push-based OTLP export
 
 **settings:** Application settings
 
@@ -188,8 +188,10 @@ metrics:
 
 export:
   otel:
-    enabled: false
-    endpoint: localhost:4318
+    enabled: true
+    transport: grpc # grpc (default) or http
+    host: localhost # default: localhost
+    port: 4317 # default: 4317 (grpc), 4318 (http)
     interval: 10s
     resource:
       service.name: obsbox
@@ -215,6 +217,7 @@ This configuration demonstrates:
 - Value derivation (cloning with reset behavior)
 - Metric attributes/labels
 - Both Prometheus and OTEL export configuration
+- Transport selection for OTEL (gRPC or HTTP)
 
 ### Common Patterns
 
@@ -342,7 +345,7 @@ export:
     path: <path> # Default: /metrics
 ```
 
-#### OTEL (Future)
+#### OTEL
 
 Push-based OTLP export.
 
@@ -350,13 +353,25 @@ Push-based OTLP export.
 export:
   otel:
     enabled: true | false
-    endpoint: <host:port>
+    transport: grpc | http # Default: grpc
+    host: <hostname> # Default: localhost
+    port: <port> # Default: 4317 (grpc), 4318 (http)
     interval: <duration> # Push interval
     resource: # Resource attributes
       <key>: <value>
     headers: # Optional HTTP headers
       <key>: <value>
 ```
+
+**Transport Types:**
+
+- `grpc`: OTLP over gRPC (default, port 4317)
+- `http`: OTLP over HTTP (port 4318)
+
+**Default Ports:**
+
+- gRPC: 4317
+- HTTP: 4318
 
 **Constraints:**
 

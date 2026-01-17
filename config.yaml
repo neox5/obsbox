@@ -44,7 +44,9 @@ metrics:
 export:
   otel:
     enabled: false
-    endpoint: localhost:4318
+    transport: grpc
+    host: localhost
+    port: 4317
     interval: 10s
     resource:
       service.name: obsbox

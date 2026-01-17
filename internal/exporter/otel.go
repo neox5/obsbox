@@ -68,7 +68,8 @@ func NewOTELExporter(
 // Start begins periodic metric export.
 func (e *OTELExporter) Start(ctx context.Context) error {
 	slog.Info("starting otel exporter",
-		"endpoint", e.config.Endpoint,
+		"transport", e.config.Transport,
+		"endpoint", e.config.GetEndpoint(),
 		"push_interval", e.config.Interval.Push,
 	)
 
