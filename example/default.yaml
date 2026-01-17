@@ -1,0 +1,34 @@
+# Default obsbox configuration
+# Generates simple application metrics for demonstration
+
+simulation:
+  clocks:
+    clk_tick:
+      type: periodic
+      interval: 1s
+
+  sources:
+    src_events:
+      type: random_int
+      clock: clk_tick
+      min: 0
+      max: 10
+
+  values:
+    v_total_events:
+      source: src_events
+      transforms: [accumulate]
+
+metrics:
+  - name: app_events_total
+    type: counter
+    description: "Total events processed"
+    value: v_total_events
+    attributes:
+      service: obsbox
+
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics

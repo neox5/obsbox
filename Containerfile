@@ -33,6 +33,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy binary from dist directory (build-local output location)
 COPY --from=builder /build/dist/obsbox /obsbox
 
+# Copy default configuration
+COPY examples/default.yaml /config/config.yaml
+
 # Run as non-root user
 USER 65534:65534
 
