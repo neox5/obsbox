@@ -26,7 +26,7 @@ type OTELExporter struct {
 type instrument struct {
 	counter    otelmetric.Int64ObservableCounter
 	gauge      otelmetric.Int64ObservableGauge
-	value      value.Value[int]
+	value      *value.Value[int]
 	attributes []attribute.KeyValue
 }
 

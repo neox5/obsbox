@@ -10,52 +10,38 @@ import (
 )
 
 // CreateValue creates a value from configuration.
+// The value is started and ready to receive updates.
 func CreateValue(
 	cfg config.ValueConfig,
 	src source.Publisher[int],
-	baseValue value.Value[int],
-) (value.Value[int], error) {
-	var val value.Value[int]
+) (*value.Value[int], error) {
+	if src == nil {
+		return nil, fmt.Errorf("source required for value")
+	}
 
-	if cfg.Clone != "" {
-		// Clone from base value
-		if baseValue == nil {
-			return nil, fmt.Errorf("base value required for clone")
-		}
-		val = baseValue.Clone()
+	// Create value
+	val := value.New(src)
 
-		// Extend transforms if specified
-		if len(cfg.Transforms) > 0 {
-			transforms, err := buildTransforms(cfg.Transforms)
-			if err != nil {
-				return nil, err
-			}
-			val = val.WithTransforms(transforms...)
-		}
-	} else {
-		// Create from source
-		var err error
-		val, err = createValueFromSource(src, cfg.Transforms)
+	// Add transforms
+	if len(cfg.Transforms) > 0 {
+		transforms, err := buildTransforms(cfg.Transforms)
 		if err != nil {
 			return nil, err
+		}
+		for _, t := range transforms {
+			val.AddTransform(t)
 		}
 	}
 
 	// Apply reset behavior
 	if cfg.Reset.Type == "on_read" {
-		val = value.NewResetOnRead(val, cfg.Reset.Value)
+		val.EnableResetOnRead(cfg.Reset.Value)
 	}
+
+	// Start the value (begins receiving updates)
+	val.Start()
 
 	return val, nil
-}
-
-// createValueFromSource creates a value from a source with transforms.
-func createValueFromSource(src source.Publisher[int], transformCfgs []config.TransformConfig) (value.Value[int], error) {
-	transforms, err := buildTransforms(transformCfgs)
-	if err != nil {
-		return nil, err
-	}
-	return value.New(src, transforms...), nil
 }
 
 // buildTransforms creates transform instances from configuration.

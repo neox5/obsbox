@@ -11,6 +11,8 @@ import (
 	"syscall"
 
 	"github.com/neox5/obsbox/internal/app"
+	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/obsbox/internal/simulation"
 	"github.com/neox5/obsbox/internal/version"
 )
 
@@ -25,8 +27,18 @@ func main() {
 	configPath := flag.String("config", "config.yaml", "path to configuration file")
 	flag.Parse()
 
+	// Load configuration
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize seed before creating any simv objects
+	simulation.InitializeSeed(&cfg.Simulation)
+
 	// Initialize application
-	application, err := app.New(*configPath)
+	application, err := app.New(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "initialization failed: %v\n", err)
 		os.Exit(1)

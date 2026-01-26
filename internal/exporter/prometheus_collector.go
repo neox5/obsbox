@@ -13,7 +13,7 @@ import (
 type metricDescriptor struct {
 	desc        *prometheus.Desc
 	valueType   prometheus.ValueType
-	value       value.Value[int]
+	value       *value.Value[int]
 	labelValues []string
 }
 

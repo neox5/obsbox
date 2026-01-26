@@ -14,15 +14,16 @@ import (
 type Generator struct {
 	clocks  map[string]clock.Clock
 	sources map[string]source.Publisher[int]
-	values  map[string]value.Value[int]
+	values  map[string]*value.Value[int]
 }
 
 // New creates a generator from configuration.
+// Values are created and started during initialization.
 func New(cfg *config.Config) (*Generator, error) {
 	gen := &Generator{
 		clocks:  make(map[string]clock.Clock),
 		sources: make(map[string]source.Publisher[int]),
-		values:  make(map[string]value.Value[int]),
+		values:  make(map[string]*value.Value[int]),
 	}
 
 	// Create clocks
@@ -48,92 +49,47 @@ func New(cfg *config.Config) (*Generator, error) {
 		gen.sources[name] = src
 	}
 
-	// Create values (handles dependencies via multiple passes)
-	if err := gen.createValues(cfg.Simulation.Values); err != nil {
-		return nil, err
+	// Create values
+	for name, valCfg := range cfg.Simulation.Values {
+		src, exists := gen.sources[valCfg.Source]
+		if !exists {
+			return nil, fmt.Errorf("source %q not found for value %q", valCfg.Source, name)
+		}
+
+		val, err := simulation.CreateValue(valCfg, src)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create value %q: %w", name, err)
+		}
+
+		gen.values[name] = val
 	}
 
 	return gen, nil
 }
 
-// createValues creates all values, resolving clone dependencies.
-func (g *Generator) createValues(valueCfgs map[string]config.ValueConfig) error {
-	created := make(map[string]bool)
-	pending := make(map[string]config.ValueConfig)
-
-	// Copy all configs to pending
-	for name, cfg := range valueCfgs {
-		pending[name] = cfg
-	}
-
-	// Process until all values created or deadlock detected
-	for len(pending) > 0 {
-		progress := false
-
-		for name, valCfg := range pending {
-			// Check if dependencies are satisfied
-			if valCfg.Clone != "" {
-				if !created[valCfg.Clone] {
-					continue // Wait for dependency
-				}
-			}
-
-			// Get source or base value
-			var src source.Publisher[int]
-			var baseValue value.Value[int]
-
-			if valCfg.Source != "" {
-				var exists bool
-				src, exists = g.sources[valCfg.Source]
-				if !exists {
-					return fmt.Errorf("source %q not found for value %q", valCfg.Source, name)
-				}
-			}
-
-			if valCfg.Clone != "" {
-				var exists bool
-				baseValue, exists = g.values[valCfg.Clone]
-				if !exists {
-					return fmt.Errorf("clone base %q not found for value %q", valCfg.Clone, name)
-				}
-			}
-
-			// Create value
-			val, err := simulation.CreateValue(valCfg, src, baseValue)
-			if err != nil {
-				return fmt.Errorf("failed to create value %q: %w", name, err)
-			}
-
-			g.values[name] = val
-			created[name] = true
-			delete(pending, name)
-			progress = true
-		}
-
-		if !progress {
-			return fmt.Errorf("circular dependency detected in values")
-		}
-	}
-
-	return nil
-}
-
-// Start begins value generation.
+// Start begins value generation by starting clocks.
+// Values are already started during creation.
 func (g *Generator) Start() {
 	for _, clk := range g.clocks {
 		clk.Start()
 	}
 }
 
-// Stop halts value generation.
+// Stop halts value generation and releases resources.
 func (g *Generator) Stop() {
+	// Stop clocks first (stops generating new values)
 	for _, clk := range g.clocks {
 		clk.Stop()
+	}
+
+	// Stop values (cleanup goroutines and channels)
+	for _, val := range g.values {
+		val.Stop()
 	}
 }
 
 // GetValue returns a named value.
-func (g *Generator) GetValue(name string) (value.Value[int], bool) {
+func (g *Generator) GetValue(name string) (*value.Value[int], bool) {
 	val, exists := g.values[name]
 	return val, exists
 }

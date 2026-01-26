@@ -4,9 +4,24 @@ import "fmt"
 
 // SimulationConfig defines the simulation domain configuration.
 type SimulationConfig struct {
+	Seed    *uint64                 `yaml:"seed,omitempty"`
 	Clocks  map[string]ClockConfig  `yaml:"clocks"`
 	Sources map[string]SourceConfig `yaml:"sources"`
 	Values  map[string]ValueConfig  `yaml:"values"`
+}
+
+// HasSeed returns true if a master seed was explicitly configured.
+func (s *SimulationConfig) HasSeed() bool {
+	return s.Seed != nil
+}
+
+// GetSeed returns the configured master seed value.
+// Only call after checking HasSeed().
+func (s *SimulationConfig) GetSeed() uint64 {
+	if s.Seed == nil {
+		return 0
+	}
+	return *s.Seed
 }
 
 // Validate checks simulation configuration consistency.
@@ -29,23 +44,13 @@ func (s *SimulationConfig) Validate() error {
 		}
 	}
 
-	// Validate value references (source or clone, not both)
+	// Validate value source references
 	for valName, val := range s.Values {
-		if val.Source == "" && val.Clone == "" {
-			return fmt.Errorf("value %q must specify either source or clone", valName)
+		if val.Source == "" {
+			return fmt.Errorf("value %q must specify source", valName)
 		}
-		if val.Source != "" && val.Clone != "" {
-			return fmt.Errorf("value %q cannot specify both source and clone", valName)
-		}
-		if val.Source != "" {
-			if _, exists := s.Sources[val.Source]; !exists {
-				return fmt.Errorf("value %q references unknown source %q", valName, val.Source)
-			}
-		}
-		if val.Clone != "" {
-			if _, exists := s.Values[val.Clone]; !exists {
-				return fmt.Errorf("value %q references unknown clone %q", valName, val.Clone)
-			}
+		if _, exists := s.Sources[val.Source]; !exists {
+			return fmt.Errorf("value %q references unknown source %q", valName, val.Source)
 		}
 	}
 

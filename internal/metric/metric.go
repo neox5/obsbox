@@ -17,5 +17,5 @@ type Descriptor struct {
 	Type           MetricType
 	Description    string
 	Attributes     map[string]string
-	Value          value.Value[int]
+	Value          *value.Value[int]
 }

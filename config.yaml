@@ -1,4 +1,8 @@
 simulation:
+  # Optional: Set seed for reproducible simulations
+  # When omitted, uses time-based seed (logged at startup)
+  # seed: 12345
+
   clocks:
     clk_mqput:
       type: periodic
@@ -17,7 +21,8 @@ simulation:
       transforms: [accumulate]
 
     v_mqput_count_reseted:
-      clone: v_mqput_counter
+      source: src_mqput_events
+      transforms: [accumulate]
       reset: on_read
 
 metrics:

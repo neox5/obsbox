@@ -2,6 +2,10 @@
 # Generates simple application metrics for demonstration
 
 simulation:
+  # Optional: Set seed for reproducible simulations
+  # When omitted, uses time-based seed (logged at startup for reproduction)
+  # seed: 12345
+
   clocks:
     clk_tick:
       type: periodic

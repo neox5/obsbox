@@ -54,10 +54,9 @@ func (r *ResetConfig) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// ValueConfig defines a simv value with transforms or derivation.
+// ValueConfig defines a simv value with transforms.
 type ValueConfig struct {
-	Source     string            `yaml:"source,omitempty"`
-	Clone      string            `yaml:"clone,omitempty"`
+	Source     string            `yaml:"source"`
 	Transforms []TransformConfig `yaml:"transforms,omitempty"`
 	Reset      ResetConfig       `yaml:"reset,omitempty"`
 }

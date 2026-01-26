@@ -18,14 +18,9 @@ type App struct {
 	OTELExporter       *exporter.OTELExporter
 }
 
-// New initializes the application from a configuration file.
-func New(configPath string) (*App, error) {
-	// Load configuration
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
+// New initializes the application from configuration.
+// Seed must be initialized before calling this function.
+func New(cfg *config.Config) (*App, error) {
 	// Create generator
 	gen, err := generator.New(cfg)
 	if err != nil {

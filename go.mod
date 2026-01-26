@@ -3,7 +3,7 @@ module github.com/neox5/obsbox
 go 1.25.5
 
 require (
-	github.com/neox5/simv v0.2.0
+	github.com/neox5/simv v0.5.0
 	github.com/prometheus/client_golang v1.23.2
 	go.opentelemetry.io/otel v1.39.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.39.0
