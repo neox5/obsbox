@@ -1,9 +1,8 @@
 package config
 
-// Config holds the complete application configuration.
+// Config holds the complete resolved application configuration
 type Config struct {
-	Simulation SimulationConfig `yaml:"simulation"`
-	Metrics    []MetricConfig   `yaml:"metrics"`
-	Export     ExportConfig     `yaml:"export"`
-	Settings   SettingsConfig   `yaml:"settings"`
+	Metrics  []MetricConfig
+	Export   ExportConfig
+	Settings SettingsConfig
 }

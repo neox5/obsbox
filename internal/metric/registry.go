@@ -16,19 +16,20 @@ type Registry struct {
 func New(cfg *config.Config, gen *generator.Generator) (*Registry, error) {
 	var metrics []Descriptor
 
-	for _, metricCfg := range cfg.Metrics {
-		val, exists := gen.GetValue(metricCfg.Value)
-		if !exists {
-			return nil, fmt.Errorf("value %q not found for metric %q", metricCfg.Value, metricCfg.Name.GetPrometheusName())
+	for i, metricCfg := range cfg.Metrics {
+		val := gen.GetValue(i)
+		if val == nil {
+			return nil, fmt.Errorf("metric %d (%s): value not found",
+				i, metricCfg.PrometheusName)
 		}
 
 		metrics = append(metrics, Descriptor{
-			PrometheusName: metricCfg.Name.GetPrometheusName(),
-			OTELName:       metricCfg.Name.GetOTELName(),
+			PrometheusName: metricCfg.PrometheusName,
+			OTELName:       metricCfg.OTELName,
 			Type:           MetricType(metricCfg.Type),
 			Description:    metricCfg.Description,
 			Attributes:     metricCfg.Attributes,
-			Value:          val,
+			Value:          val.Value,
 		})
 	}
 

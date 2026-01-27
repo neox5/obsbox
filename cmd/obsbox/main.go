@@ -12,7 +12,6 @@ import (
 
 	"github.com/neox5/obsbox/internal/app"
 	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/simulation"
 	"github.com/neox5/obsbox/internal/version"
 )
 
@@ -34,10 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize seed before creating any simv objects
-	simulation.InitializeSeed(&cfg.Simulation)
-
-	// Initialize application
+	// Initialize application (handles seed initialization internally)
 	application, err := app.New(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "initialization failed: %v\n", err)

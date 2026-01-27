@@ -7,6 +7,7 @@ import (
 	"github.com/neox5/obsbox/internal/exporter"
 	"github.com/neox5/obsbox/internal/generator"
 	"github.com/neox5/obsbox/internal/metric"
+	"github.com/neox5/obsbox/internal/simulation"
 )
 
 // App holds initialized application components.
@@ -21,8 +22,11 @@ type App struct {
 // New initializes the application from configuration.
 // Seed must be initialized before calling this function.
 func New(cfg *config.Config) (*App, error) {
-	// Create generator
-	gen, err := generator.New(cfg)
+	// Initialize seed before creating any simv objects
+	simulation.InitializeSeed(&cfg.Settings)
+
+	// Create generator from metrics
+	gen, err := generator.New(cfg.Metrics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create generator: %w", err)
 	}

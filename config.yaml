@@ -1,8 +1,4 @@
-simulation:
-  # Optional: Set seed for reproducible simulations
-  # When omitted, uses time-based seed (logged at startup)
-  # seed: 12345
-
+templates:
   clocks:
     clk_mqput:
       type: periodic
@@ -55,7 +51,7 @@ export:
     interval: 10s
     resource:
       service.name: obsbox
-      service.version: 0.1.0
+      service.version: 0.2.0
       deployment.environment: development
 
   prometheus:
@@ -64,6 +60,7 @@ export:
     path: /metrics
 
 settings:
+  seed: 12345
   internal_metrics:
     enabled: true
     format: native

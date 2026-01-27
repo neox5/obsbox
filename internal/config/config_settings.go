@@ -4,6 +4,7 @@ import "fmt"
 
 // SettingsConfig holds general application settings.
 type SettingsConfig struct {
+	Seed            *uint64               `yaml:"seed,omitempty"`
 	InternalMetrics InternalMetricsConfig `yaml:"internal_metrics"`
 }
 

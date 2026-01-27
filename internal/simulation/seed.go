@@ -10,12 +10,12 @@ import (
 
 // InitializeSeed initializes the simv seed registry (required by simv v0.5.0).
 // Must be called before creating any simv objects (clocks, sources, values).
-func InitializeSeed(cfg *config.SimulationConfig) {
+func InitializeSeed(cfg *config.SettingsConfig) {
 	var masterSeed uint64
 	var explicit bool
 
-	if cfg.HasSeed() {
-		masterSeed = cfg.GetSeed()
+	if cfg.Seed != nil {
+		masterSeed = *cfg.Seed
 		explicit = true
 	} else {
 		masterSeed = uint64(time.Now().UnixNano())

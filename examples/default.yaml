@@ -1,33 +1,29 @@
-# Default obsbox configuration
-# Generates simple application metrics for demonstration
+# Default obsbox configuration with template system
+# Demonstrates basic metric generation with templates
 
-simulation:
-  # Optional: Set seed for reproducible simulations
-  # When omitted, uses time-based seed (logged at startup for reproduction)
-  # seed: 12345
-
+templates:
   clocks:
     clk_tick:
       type: periodic
       interval: 1s
 
   sources:
-    src_events:
+    src_rnd_int:
       type: random_int
       clock: clk_tick
       min: 0
       max: 10
 
   values:
-    v_total_events:
-      source: src_events
+    v_event_acc:
+      source: src_rnd_int
       transforms: [accumulate]
 
 metrics:
   - name: app_events_total
     type: counter
     description: "Total events processed"
-    value: v_total_events
+    value: v_event_acc
     attributes:
       service: obsbox
 
@@ -36,3 +32,12 @@ export:
     enabled: true
     port: 9090
     path: /metrics
+
+settings:
+  # Optional: Set seed for reproducible simulations
+  # When omitted, uses time-based seed (logged at startup)
+  # seed: 12345
+
+  internal_metrics:
+    enabled: false
+    format: native

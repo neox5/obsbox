@@ -9,12 +9,17 @@ import (
 	"github.com/neox5/simv/value"
 )
 
+// ValueWrapper wraps simv Value for easier management
+type ValueWrapper struct {
+	*value.Value[int]
+}
+
 // CreateValue creates a value from configuration.
 // The value is started and ready to receive updates.
 func CreateValue(
 	cfg config.ValueConfig,
 	src source.Publisher[int],
-) (*value.Value[int], error) {
+) (*ValueWrapper, error) {
 	if src == nil {
 		return nil, fmt.Errorf("source required for value")
 	}
@@ -41,7 +46,7 @@ func CreateValue(
 	// Start the value (begins receiving updates)
 	val.Start()
 
-	return val, nil
+	return &ValueWrapper{Value: val}, nil
 }
 
 // buildTransforms creates transform instances from configuration.
@@ -60,4 +65,14 @@ func buildTransforms(transformCfgs []config.TransformConfig) ([]transform.Transf
 	}
 
 	return transforms, nil
+}
+
+// GetEffectiveClock returns the clock to use for this value.
+// If value has explicit clock (override), use it.
+// Otherwise, inherit from source.
+func GetEffectiveClock(cfg config.ValueConfig) config.ClockConfig {
+	if cfg.Clock.Type != "" {
+		return cfg.Clock
+	}
+	return cfg.Source.Clock
 }

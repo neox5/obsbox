@@ -7,46 +7,50 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// Load reads and parses a YAML configuration file.
+// Load reads and parses a YAML configuration file using two-step process
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	// Step 1: Load raw config (syntactic validation)
+	raw, err := loadRaw(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+	// Step 2: Resolve templates (semantic validation)
+	resolver := NewResolver(raw)
+	config, err := resolver.Resolve()
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve config: %w", err)
 	}
 
-	if err := validate(&cfg); err != nil {
-		return nil, fmt.Errorf("invalid configuration: %w", err)
-	}
-
-	return &cfg, nil
+	return config, nil
 }
 
-// validate orchestrates configuration validation.
-func validate(cfg *Config) error {
-	// Validate settings configuration
-	if err := cfg.Settings.Validate(); err != nil {
-		return err
+// loadRaw reads YAML file and performs syntactic validation
+func loadRaw(path string) (*RawConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	var raw RawConfig
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	// Syntactic validation
+	if err := validateRawSyntax(&raw); err != nil {
+		return nil, err
 	}
 
 	// Validate export configuration
-	if err := cfg.Export.Validate(); err != nil {
-		return err
+	if err := raw.Export.Validate(); err != nil {
+		return nil, err
 	}
 
-	// Validate simulation configuration
-	if err := cfg.Simulation.Validate(); err != nil {
-		return err
+	// Validate settings configuration
+	if err := raw.Settings.Validate(); err != nil {
+		return nil, err
 	}
 
-	// Validate metrics configuration
-	if err := validateMetrics(cfg); err != nil {
-		return err
-	}
-
-	return nil
+	return &raw, nil
 }
