@@ -11,10 +11,18 @@ import (
 
 // Generator manages simv components and value generation.
 type Generator struct {
-	clocks      []clock.Clock                    // Parallel to values (one per metric)
-	values      []*simulation.ValueWrapper       // Index-aligned with metrics
-	clockCache  map[string]clock.Clock           // Instance name → shared clock
-	sourceCache map[string]source.Publisher[int] // Instance name → shared source
+	// Lifecycle management - unique objects only
+	clocks  []clock.Clock
+	sources []source.Publisher[int]
+	values  []*simulation.ValueWrapper
+
+	// Instance sharing - named references
+	clockInstances  map[string]clock.Clock
+	sourceInstances map[string]source.Publisher[int]
+	valueInstances  map[string]*simulation.ValueWrapper
+
+	// Metric indexing - fast lookup by metric index
+	metricValues []*simulation.ValueWrapper
 }
 
 // New creates a generator from metric configurations.
@@ -22,93 +30,140 @@ type Generator struct {
 // Reuses instances when referenced by name via *Ref fields.
 func New(metrics []config.MetricConfig) (*Generator, error) {
 	g := &Generator{
-		clocks:      make([]clock.Clock, len(metrics)),
-		values:      make([]*simulation.ValueWrapper, len(metrics)),
-		clockCache:  make(map[string]clock.Clock),
-		sourceCache: make(map[string]source.Publisher[int]),
+		clockInstances:  make(map[string]clock.Clock),
+		sourceInstances: make(map[string]source.Publisher[int]),
+		valueInstances:  make(map[string]*simulation.ValueWrapper),
+		metricValues:    make([]*simulation.ValueWrapper, len(metrics)),
 	}
 
 	for i, metric := range metrics {
-		// Create or reuse clock
+		// Get or create clock
 		clk, err := g.getOrCreateClock(metric.Value.Source)
 		if err != nil {
 			return nil, fmt.Errorf("metric %d (%s): failed to create clock: %w",
 				i, metric.PrometheusName, err)
 		}
-		g.clocks[i] = clk
 
-		// Create or reuse source
+		// Get or create source
 		src, err := g.getOrCreateSource(metric.Value, clk)
 		if err != nil {
 			return nil, fmt.Errorf("metric %d (%s): failed to create source: %w",
 				i, metric.PrometheusName, err)
 		}
 
-		// Create value (always unique - derives from source)
-		val, err := simulation.CreateValue(metric.Value, src)
+		// Get or create value
+		val, err := g.getOrCreateValue(metric.Value, src)
 		if err != nil {
 			return nil, fmt.Errorf("metric %d (%s): failed to create value: %w",
 				i, metric.PrometheusName, err)
 		}
-		g.values[i] = val
+
+		// Store for metric lookup (allows duplicates)
+		g.metricValues[i] = val
 	}
 
 	return g, nil
 }
 
 // getOrCreateClock returns cached clock if ClockRef is set, otherwise creates new.
+// Adds unique clocks to lifecycle management.
 func (g *Generator) getOrCreateClock(sourceCfg config.SourceConfig) (clock.Clock, error) {
 	// Check if clock is shared instance
 	if sourceCfg.ClockRef != nil {
 		instanceName := *sourceCfg.ClockRef
 
 		// Return cached clock if already created
-		if clk, exists := g.clockCache[instanceName]; exists {
+		if clk, exists := g.clockInstances[instanceName]; exists {
 			return clk, nil
 		}
 
-		// Create and cache new clock
+		// Create new clock
 		clk, err := simulation.CreateClock(sourceCfg.Clock)
 		if err != nil {
 			return nil, fmt.Errorf("clock instance %q: %w", instanceName, err)
 		}
 
-		g.clockCache[instanceName] = clk
+		// Cache for sharing
+		g.clockInstances[instanceName] = clk
+
+		// Add to lifecycle management
+		g.clocks = append(g.clocks, clk)
+
 		return clk, nil
 	}
 
 	// Unique clock - create new without caching
-	return simulation.CreateClock(sourceCfg.Clock)
+	clk, err := simulation.CreateClock(sourceCfg.Clock)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add to lifecycle management
+	g.clocks = append(g.clocks, clk)
+
+	return clk, nil
 }
 
 // getOrCreateSource returns cached source if SourceRef is set, otherwise creates new.
+// Adds unique sources to lifecycle management.
 func (g *Generator) getOrCreateSource(valueCfg config.ValueConfig, clk clock.Clock) (source.Publisher[int], error) {
 	// Check if source is shared instance
 	if valueCfg.SourceRef != nil {
 		instanceName := *valueCfg.SourceRef
 
 		// Return cached source if already created
-		if src, exists := g.sourceCache[instanceName]; exists {
+		if src, exists := g.sourceInstances[instanceName]; exists {
 			return src, nil
 		}
 
-		// Create and cache new source
+		// Create new source
 		src, err := simulation.CreateSource(valueCfg.Source, clk)
 		if err != nil {
 			return nil, fmt.Errorf("source instance %q: %w", instanceName, err)
 		}
 
-		g.sourceCache[instanceName] = src
+		// Cache for sharing
+		g.sourceInstances[instanceName] = src
+
+		// Add to lifecycle management
+		g.sources = append(g.sources, src)
+
 		return src, nil
 	}
 
 	// Unique source - create new without caching
-	return simulation.CreateSource(valueCfg.Source, clk)
+	src, err := simulation.CreateSource(valueCfg.Source, clk)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add to lifecycle management
+	g.sources = append(g.sources, src)
+
+	return src, nil
 }
 
-// Start begins value generation by starting all clocks.
+// getOrCreateValue creates or returns cached value.
+// Values are always added to lifecycle management.
+func (g *Generator) getOrCreateValue(valueCfg config.ValueConfig, src source.Publisher[int]) (*simulation.ValueWrapper, error) {
+	// Note: Value instance sharing not yet implemented in config
+	// This structure supports future value instance sharing
+
+	// Create value
+	val, err := simulation.CreateValue(valueCfg, src)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add to lifecycle management
+	g.values = append(g.values, val)
+
+	return val, nil
+}
+
+// Start begins value generation by starting all unique clocks.
 func (g *Generator) Start() {
-	// Start each clock (accepts duplicates - simv handles idempotency)
+	// Start each unique clock exactly once
 	for _, clk := range g.clocks {
 		clk.Start()
 	}
@@ -116,12 +171,12 @@ func (g *Generator) Start() {
 
 // Stop halts value generation and releases resources.
 func (g *Generator) Stop() {
-	// Stop clocks first (stops generating new values)
+	// Stop unique clocks
 	for _, clk := range g.clocks {
 		clk.Stop()
 	}
 
-	// Stop values (cleanup goroutines and channels)
+	// Stop unique values
 	for _, val := range g.values {
 		val.Stop()
 	}
@@ -129,8 +184,8 @@ func (g *Generator) Stop() {
 
 // GetValue returns the value at the specified metric index.
 func (g *Generator) GetValue(index int) *simulation.ValueWrapper {
-	if index < 0 || index >= len(g.values) {
+	if index < 0 || index >= len(g.metricValues) {
 		return nil
 	}
-	return g.values[index]
+	return g.metricValues[index]
 }
