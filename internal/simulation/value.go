@@ -66,13 +66,3 @@ func buildTransforms(transformCfgs []config.TransformConfig) ([]transform.Transf
 
 	return transforms, nil
 }
-
-// GetEffectiveClock returns the clock to use for this value.
-// If value has explicit clock (override), use it.
-// Otherwise, inherit from source.
-func GetEffectiveClock(cfg config.ValueConfig) config.ClockConfig {
-	if cfg.Clock.Type != "" {
-		return cfg.Clock
-	}
-	return cfg.Source.Clock
-}

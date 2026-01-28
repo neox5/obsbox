@@ -10,9 +10,17 @@ import (
 // RawConfig represents unparsed YAML structure
 type RawConfig struct {
 	Templates RawTemplates      `yaml:"templates"`
+	Instances RawInstances      `yaml:"instances"`
 	Metrics   []RawMetricConfig `yaml:"metrics"`
 	Export    ExportConfig      `yaml:"export"`
 	Settings  SettingsConfig    `yaml:"settings"`
+}
+
+// RawInstances holds all instance definitions
+type RawInstances struct {
+	Clocks  map[string]RawClockReference  `yaml:"clocks,omitempty"`
+	Sources map[string]RawSourceReference `yaml:"sources,omitempty"`
+	Values  map[string]RawValueReference  `yaml:"values,omitempty"`
 }
 
 // RawMetricConfig with polymorphic value field
@@ -24,105 +32,31 @@ type RawMetricConfig struct {
 	Attributes  map[string]string `yaml:"attributes,omitempty"`
 }
 
-// RawValueReference handles polymorphic value field (string or object)
+// RawClockReference handles polymorphic clock field (instance/template/inline)
+type RawClockReference struct {
+	Instance string        `yaml:"instance,omitempty"`
+	Template string        `yaml:"template,omitempty"`
+	Type     *string       `yaml:"type,omitempty"`
+	Interval time.Duration `yaml:"interval,omitempty"`
+}
+
+// RawSourceReference handles polymorphic source field (instance/template/inline)
+type RawSourceReference struct {
+	Instance string             `yaml:"instance,omitempty"`
+	Template string             `yaml:"template,omitempty"`
+	Type     *string            `yaml:"type,omitempty"`
+	Clock    *RawClockReference `yaml:"clock,omitempty"`
+	Min      *int               `yaml:"min,omitempty"`
+	Max      *int               `yaml:"max,omitempty"`
+}
+
+// RawValueReference handles polymorphic value field (instance/template/inline)
 type RawValueReference struct {
-	Template string          // Set if string form used
-	Inline   *RawValueConfig // Set if object form used
-}
-
-func (r *RawValueReference) UnmarshalYAML(value *yaml.Node) error {
-	// Try string form first
-	var template string
-	if err := value.Decode(&template); err == nil {
-		if template == "" {
-			return fmt.Errorf("template reference cannot be empty string")
-		}
-		r.Template = template
-		return nil
-	}
-
-	// Fall back to object form
-	var inline RawValueConfig
-	if err := value.Decode(&inline); err != nil {
-		return fmt.Errorf("invalid value config: %w", err)
-	}
-	r.Inline = &inline
-	return nil
-}
-
-// RawValueConfig for metric value with template + overrides
-type RawValueConfig struct {
-	Template   string            `yaml:"template,omitempty"`
-	Source     *RawSourceConfig  `yaml:"source,omitempty"`
-	Clock      *RawClockConfig   `yaml:"clock,omitempty"`
-	Transforms []TransformConfig `yaml:"transforms,omitempty"`
-	Reset      ResetConfig       `yaml:"reset,omitempty"`
-}
-
-// RawSourceConfig handles polymorphic source field (string or object)
-type RawSourceConfig struct {
-	Template string           // Set if string form used
-	Inline   *RawSourceInline // Set if object form used
-}
-
-func (r *RawSourceConfig) UnmarshalYAML(value *yaml.Node) error {
-	// Try string form first
-	var template string
-	if err := value.Decode(&template); err == nil {
-		if template == "" {
-			return fmt.Errorf("template reference cannot be empty string")
-		}
-		r.Template = template
-		return nil
-	}
-
-	// Fall back to object form
-	var inline RawSourceInline
-	if err := value.Decode(&inline); err != nil {
-		return fmt.Errorf("invalid source config: %w", err)
-	}
-	r.Inline = &inline
-	return nil
-}
-
-// RawSourceInline for inline source definition
-type RawSourceInline struct {
-	Type  string          `yaml:"type"`
-	Clock *RawClockConfig `yaml:"clock,omitempty"`
-	Min   *int            `yaml:"min,omitempty"`
-	Max   *int            `yaml:"max,omitempty"`
-}
-
-// RawClockConfig handles polymorphic clock field (string or object)
-type RawClockConfig struct {
-	Template string          // Set if string form used
-	Inline   *RawClockInline // Set if object form used
-}
-
-func (r *RawClockConfig) UnmarshalYAML(value *yaml.Node) error {
-	// Try string form first
-	var template string
-	if err := value.Decode(&template); err == nil {
-		if template == "" {
-			return fmt.Errorf("template reference cannot be empty string")
-		}
-		r.Template = template
-		return nil
-	}
-
-	// Fall back to object form
-	var inline RawClockInline
-	if err := value.Decode(&inline); err != nil {
-		return fmt.Errorf("invalid clock config: %w", err)
-	}
-	r.Inline = &inline
-	return nil
-}
-
-// RawClockInline for inline clock definition
-type RawClockInline struct {
-	Type     string        `yaml:"type"`
-	Interval time.Duration `yaml:"interval"`
+	Instance   string              `yaml:"instance,omitempty"`
+	Template   string              `yaml:"template,omitempty"`
+	Source     *RawSourceReference `yaml:"source,omitempty"`
+	Transforms []TransformConfig   `yaml:"transforms,omitempty"`
+	Reset      ResetConfig         `yaml:"reset,omitempty"`
 }
 
 // TransformConfig defines a transform operation

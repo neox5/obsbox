@@ -1,0 +1,110 @@
+# Test configuration demonstrating template system
+# Tests template references with explicit syntax
+
+templates:
+  clocks:
+    # Template clock 1
+    tick_1s:
+      type: periodic
+      interval: 1s
+
+    # Template clock 2
+    tick_fast:
+      type: periodic
+      interval: 100ms
+
+  sources:
+    # Source template referencing clock template explicitly
+    base_events:
+      type: random_int
+      clock:
+        template: tick_1s
+      min: 0
+      max: 100
+
+    # Source template with inline clock definition
+    fast_events:
+      type: random_int
+      clock:
+        type: periodic
+        interval: 50ms
+      min: 0
+      max: 10
+
+  values:
+    # Value template referencing source template
+    counter_events:
+      source:
+        template: base_events
+      transforms: [accumulate]
+
+    # Value template referencing source with overrides
+    counter_fast:
+      source:
+        template: base_events
+        clock:
+          template: tick_fast # Override clock
+        max: 50 # Override max
+      transforms: [accumulate]
+
+    # Value template with inline source
+    gauge_inline:
+      source:
+        type: random_int
+        clock:
+          type: periodic
+          interval: 200ms
+        min: 0
+        max: 200
+      transforms: [accumulate]
+      reset: on_read
+
+metrics:
+  # Metric 1: Reference value template
+  - name: events_total
+    type: counter
+    description: "Total events from template"
+    value:
+      template: counter_events
+    attributes:
+      service: obsbox
+
+  # Metric 2: Reference value template with overrides
+  - name: events_fast_total
+    type: counter
+    description: "Fast events with overridden template"
+    value:
+      template: counter_fast
+      reset:
+        type: on_read
+        value: 100 # Override reset behavior
+    attributes:
+      service: obsbox
+
+  # Metric 3: Inline value definition
+  - name: custom_gauge
+    type: gauge
+    description: "Custom gauge with inline definition"
+    value:
+      source:
+        type: random_int
+        clock:
+          type: periodic
+          interval: 500ms
+        min: 0
+        max: 1000
+      transforms: [accumulate]
+      reset: on_read
+    attributes:
+      service: obsbox
+
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+settings:
+  seed: 54321
+  internal_metrics:
+    enabled: false

@@ -16,7 +16,7 @@ type MetricConfig struct {
 	OTELName       string
 	Type           MetricType
 	Description    string
-	Value          ValueConfig
+	Value          ValueConfig // Changed from: ValueRef ValueReference
 	Attributes     map[string]string
 }
 
@@ -86,21 +86,20 @@ func isValidAttributeName(name string) bool {
 }
 
 // ValueConfig defines a fully resolved value with embedded components.
-// Clock is optional - if not specified, inherited from Source.Clock.
-// If specified, overrides Source.Clock.
 type ValueConfig struct {
 	Source     SourceConfig
-	Clock      ClockConfig // Optional - overrides Source.Clock if specified
+	SourceRef  *string // Instance name if source is shared
 	Transforms []TransformConfig
 	Reset      ResetConfig
 }
 
 // SourceConfig defines a fully resolved source with embedded clock
 type SourceConfig struct {
-	Type  string
-	Clock ClockConfig
-	Min   int
-	Max   int
+	Type     string
+	Clock    ClockConfig
+	ClockRef *string // Instance name if clock is shared
+	Min      int
+	Max      int
 }
 
 // ClockConfig defines a fully resolved clock

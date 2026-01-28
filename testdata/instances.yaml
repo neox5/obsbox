@@ -1,0 +1,97 @@
+# Test configuration demonstrating instance support
+# Tests clock and source sharing across multiple metrics
+
+instances:
+  clocks:
+    main_tick:
+      type: periodic
+      interval: 1s
+
+    fast_tick:
+      type: periodic
+      interval: 100ms
+
+  sources:
+    event_source:
+      type: random_int
+      clock:
+        instance: main_tick
+      min: 0
+      max: 100
+
+    error_source:
+      type: random_int
+      clock:
+        instance: fast_tick
+      min: 0
+      max: 10
+
+  values:
+    total_events:
+      source:
+        instance: event_source
+      transforms: [accumulate]
+
+metrics:
+  # Metric 1: References value instance (shares clock + source)
+  - name: events_total
+    type: counter
+    description: "Total events processed"
+    value:
+      instance: total_events
+    attributes:
+      service: obsbox
+      component: test
+
+  # Metric 2: References source instance directly, adds reset (shares source, unique value)
+  - name: events_rate
+    type: gauge
+    description: "Recent events in window"
+    value:
+      source:
+        instance: event_source
+      transforms: [accumulate]
+      reset: on_read
+    attributes:
+      service: obsbox
+      component: test
+
+  # Metric 3: References different source instance (shares different clock)
+  - name: errors_total
+    type: counter
+    description: "Total errors encountered"
+    value:
+      source:
+        instance: error_source
+      transforms: [accumulate]
+    attributes:
+      service: obsbox
+      component: test
+
+  # Metric 4: Inline definition (unique clock and source)
+  - name: requests_total
+    type: counter
+    description: "Total requests received"
+    value:
+      source:
+        type: random_int
+        clock:
+          type: periodic
+          interval: 500ms
+        min: 0
+        max: 50
+      transforms: [accumulate]
+    attributes:
+      service: obsbox
+      component: test
+
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+settings:
+  seed: 12345
+  internal_metrics:
+    enabled: false

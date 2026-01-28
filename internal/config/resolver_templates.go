@@ -1,14 +1,20 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+)
 
-// resolveClockTemplates resolves clock templates (no dependencies)
-func (r *Resolver) resolveClockTemplates() error {
+// resolveTemplateClocks resolves clock templates (no dependencies)
+func (r *Resolver) resolveTemplateClocks() error {
 	for name, raw := range r.raw.Templates.Clocks {
+		if err := r.registerName(name, "template clock"); err != nil {
+			return err
+		}
+
 		ctx := resolveContext{}.push("clock template", name)
 
 		resolved := ClockConfig{
-			Type:     raw.Type,
+			Type:     getStringValue(raw.Type),
 			Interval: raw.Interval,
 		}
 
@@ -20,27 +26,32 @@ func (r *Resolver) resolveClockTemplates() error {
 			return ctx.error("interval required")
 		}
 
-		r.clocks[name] = resolved
+		r.templateClocks[name] = resolved
 	}
 	return nil
 }
 
-// resolveSourceTemplates resolves source templates (may reference clock templates)
-func (r *Resolver) resolveSourceTemplates() error {
+// resolveTemplateSources resolves source templates (may reference clock templates)
+func (r *Resolver) resolveTemplateSources() error {
 	for name, raw := range r.raw.Templates.Sources {
+		if err := r.registerName(name, "template source"); err != nil {
+			return err
+		}
+
 		ctx := resolveContext{}.push("source template", name)
 
 		resolved := SourceConfig{
-			Type: raw.Type,
+			Type: getStringValue(raw.Type),
 		}
 
-		// Resolve clock reference if present
+		// Resolve clock (inline only for templates)
 		if raw.Clock != nil {
-			clock, err := r.resolveClock(raw.Clock, ctx)
+			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
 			if err != nil {
 				return err
 			}
 			resolved.Clock = clock
+			resolved.ClockRef = clockRef
 		}
 
 		// Copy optional fields
@@ -56,34 +67,30 @@ func (r *Resolver) resolveSourceTemplates() error {
 			return ctx.error("type required")
 		}
 
-		r.sources[name] = resolved
+		r.templateSources[name] = resolved
 	}
 	return nil
 }
 
-// resolveValueTemplates resolves value templates (may reference source + clock templates)
-func (r *Resolver) resolveValueTemplates() error {
+// resolveTemplateValues resolves value templates (may reference source templates)
+func (r *Resolver) resolveTemplateValues() error {
 	for name, raw := range r.raw.Templates.Values {
+		if err := r.registerName(name, "template value"); err != nil {
+			return err
+		}
+
 		ctx := resolveContext{}.push("value template", name)
 
 		resolved := ValueConfig{}
 
-		// Resolve source reference if present
+		// Resolve source (inline only for templates)
 		if raw.Source != nil {
-			source, err := r.resolveSource(raw.Source, ctx)
+			source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
 			if err != nil {
 				return err
 			}
 			resolved.Source = source
-		}
-
-		// Resolve clock reference if present (optional override)
-		if raw.Clock != nil {
-			clock, err := r.resolveClock(raw.Clock, ctx)
-			if err != nil {
-				return err
-			}
-			resolved.Clock = clock
+			resolved.SourceRef = sourceRef
 		}
 
 		// Copy transforms and reset
@@ -95,14 +102,18 @@ func (r *Resolver) resolveValueTemplates() error {
 			return err
 		}
 
-		r.values[name] = resolved
+		r.templateValues[name] = resolved
 	}
 	return nil
 }
 
-// resolveMetricTemplates resolves metric templates (may reference value templates)
-func (r *Resolver) resolveMetricTemplates() error {
+// resolveTemplateMetrics resolves metric templates (may reference value templates)
+func (r *Resolver) resolveTemplateMetrics() error {
 	for name, raw := range r.raw.Templates.Metrics {
+		if err := r.registerName(name, "template metric"); err != nil {
+			return err
+		}
+
 		ctx := resolveContext{}.push("metric template", name)
 
 		resolved := MetricConfig{
@@ -111,7 +122,7 @@ func (r *Resolver) resolveMetricTemplates() error {
 
 		// Resolve value reference if present
 		if raw.Value != nil {
-			value, err := r.resolveValue(raw.Value, ctx)
+			value, err := r.resolveValueFromReference(raw.Value, ctx)
 			if err != nil {
 				return err
 			}
@@ -131,147 +142,305 @@ func (r *Resolver) resolveMetricTemplates() error {
 			return ctx.error("type required")
 		}
 
-		r.metrics[name] = resolved
+		r.templateMetrics[name] = resolved
 	}
 	return nil
 }
 
-// resolveClock resolves a clock reference or inline definition
-func (r *Resolver) resolveClock(raw *RawClockConfig, ctx resolveContext) (ClockConfig, error) {
-	// Template reference
-	if raw.Template != "" {
-		template, exists := r.clocks[raw.Template]
-		if !exists {
-			return ClockConfig{}, ctx.error(fmt.Sprintf("clock template %q not found", raw.Template))
+// resolveInstanceClocks resolves clock instances
+func (r *Resolver) resolveInstanceClocks() error {
+	for name, raw := range r.raw.Instances.Clocks {
+		if err := r.registerName(name, "instance clock"); err != nil {
+			return err
 		}
-		return template, nil
-	}
 
-	// Inline definition
-	if raw.Inline != nil {
+		ctx := resolveContext{}.push("clock instance", name)
+
 		resolved := ClockConfig{
-			Type:     raw.Inline.Type,
-			Interval: raw.Inline.Interval,
+			Type:     getStringValue(raw.Type),
+			Interval: raw.Interval,
 		}
 
 		// Validate
 		if resolved.Type == "" {
-			return ClockConfig{}, ctx.error("clock type required")
+			return ctx.error("type required")
 		}
 		if resolved.Interval == 0 {
-			return ClockConfig{}, ctx.error("clock interval required")
+			return ctx.error("interval required")
 		}
 
-		return resolved, nil
+		r.instanceClocks[name] = resolved
 	}
-
-	return ClockConfig{}, ctx.error("clock must be template reference or inline definition")
+	return nil
 }
 
-// resolveSource resolves a source reference or inline definition
-func (r *Resolver) resolveSource(raw *RawSourceConfig, ctx resolveContext) (SourceConfig, error) {
-	// Template reference
-	if raw.Template != "" {
-		template, exists := r.sources[raw.Template]
-		if !exists {
-			return SourceConfig{}, ctx.error(fmt.Sprintf("source template %q not found", raw.Template))
+// resolveInstanceSources resolves source instances (may reference template/instance clocks)
+func (r *Resolver) resolveInstanceSources() error {
+	for name, raw := range r.raw.Instances.Sources {
+		if err := r.registerName(name, "instance source"); err != nil {
+			return err
 		}
-		return template, nil
-	}
 
-	// Inline definition
-	if raw.Inline != nil {
+		ctx := resolveContext{}.push("source instance", name)
+
 		resolved := SourceConfig{
-			Type: raw.Inline.Type,
+			Type: getStringValue(raw.Type),
 		}
 
-		// Resolve clock if present
-		if raw.Inline.Clock != nil {
-			clock, err := r.resolveClock(raw.Inline.Clock, ctx)
+		// Resolve clock reference if present
+		if raw.Clock != nil {
+			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
 			if err != nil {
-				return SourceConfig{}, err
+				return err
 			}
 			resolved.Clock = clock
+			resolved.ClockRef = clockRef
 		}
 
 		// Copy optional fields
-		if raw.Inline.Min != nil {
-			resolved.Min = *raw.Inline.Min
+		if raw.Min != nil {
+			resolved.Min = *raw.Min
 		}
-		if raw.Inline.Max != nil {
-			resolved.Max = *raw.Inline.Max
+		if raw.Max != nil {
+			resolved.Max = *raw.Max
 		}
 
 		// Validate
 		if resolved.Type == "" {
-			return SourceConfig{}, ctx.error("source type required")
+			return ctx.error("type required")
 		}
 
-		return resolved, nil
+		r.instanceSources[name] = resolved
 	}
-
-	return SourceConfig{}, ctx.error("source must be template reference or inline definition")
+	return nil
 }
 
-// resolveValue resolves a value reference or inline definition with overrides
-func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (ValueConfig, error) {
-	var result ValueConfig
+// resolveInstanceValues resolves value instances (may reference template/instance sources)
+func (r *Resolver) resolveInstanceValues() error {
+	for name, raw := range r.raw.Instances.Values {
+		if err := r.registerName(name, "instance value"); err != nil {
+			return err
+		}
 
-	// Step 1: Apply template if string form
+		ctx := resolveContext{}.push("value instance", name)
+
+		resolved := ValueConfig{}
+
+		// Resolve source reference if present
+		if raw.Source != nil {
+			source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
+			if err != nil {
+				return err
+			}
+			resolved.Source = source
+			resolved.SourceRef = sourceRef
+		}
+
+		// Copy transforms and reset
+		resolved.Transforms = raw.Transforms
+		resolved.Reset = raw.Reset
+
+		// Validate
+		if err := r.validateValue(resolved, ctx); err != nil {
+			return err
+		}
+
+		r.instanceValues[name] = resolved
+	}
+	return nil
+}
+
+// resolveSourceFromReference resolves a source from RawSourceReference (supports instance/template/inline)
+func (r *Resolver) resolveSourceFromReference(raw *RawSourceReference, ctx resolveContext) (SourceConfig, *string, error) {
+	// Instance reference
+	if raw.Instance != "" {
+		instance, exists := r.instanceSources[raw.Instance]
+		if !exists {
+			return SourceConfig{}, nil, ctx.error(fmt.Sprintf("source instance %q not found", raw.Instance))
+		}
+		// No overrides allowed for instances
+		if raw.Template != "" || raw.Type != nil || raw.Clock != nil || raw.Min != nil || raw.Max != nil {
+			return SourceConfig{}, nil, ctx.error("cannot override instance source")
+		}
+		return instance, &raw.Instance, nil
+	}
+
+	// Template reference (with optional overrides)
 	if raw.Template != "" {
-		template, exists := r.values[raw.Template]
+		template, exists := r.templateSources[raw.Template]
+		if !exists {
+			return SourceConfig{}, nil, ctx.error(fmt.Sprintf("source template %q not found", raw.Template))
+		}
+
+		// Apply overrides
+		result := template
+		if raw.Type != nil {
+			result.Type = *raw.Type
+		}
+		if raw.Clock != nil {
+			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
+			if err != nil {
+				return SourceConfig{}, nil, err
+			}
+			result.Clock = clock
+			result.ClockRef = clockRef
+		}
+		if raw.Min != nil {
+			result.Min = *raw.Min
+		}
+		if raw.Max != nil {
+			result.Max = *raw.Max
+		}
+		return result, nil, nil
+	}
+
+	// Inline definition
+	if raw.Type != nil {
+		result := SourceConfig{}
+		result.Type = *raw.Type
+
+		// Resolve clock if present
+		if raw.Clock != nil {
+			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
+			if err != nil {
+				return SourceConfig{}, nil, err
+			}
+			result.Clock = clock
+			result.ClockRef = clockRef
+		}
+
+		// Copy optional fields
+		if raw.Min != nil {
+			result.Min = *raw.Min
+		}
+		if raw.Max != nil {
+			result.Max = *raw.Max
+		}
+
+		// Validate
+		if result.Type == "" {
+			return SourceConfig{}, nil, ctx.error("source type required")
+		}
+
+		return result, nil, nil
+	}
+
+	return SourceConfig{}, nil, ctx.error("source must reference instance, template, or provide inline definition")
+}
+
+// resolveValueFromReference resolves a value from RawValueReference (supports instance/template/inline)
+func (r *Resolver) resolveValueFromReference(raw *RawValueReference, ctx resolveContext) (ValueConfig, error) {
+	// Instance reference
+	if raw.Instance != "" {
+		instance, exists := r.instanceValues[raw.Instance]
+		if !exists {
+			return ValueConfig{}, ctx.error(fmt.Sprintf("value instance %q not found", raw.Instance))
+		}
+		// No overrides allowed for instances
+		if raw.Template != "" || raw.Source != nil || len(raw.Transforms) > 0 || raw.Reset.Type != "" {
+			return ValueConfig{}, ctx.error("cannot override instance value")
+		}
+		return instance, nil
+	}
+
+	// Template reference (with optional overrides)
+	if raw.Template != "" {
+		template, exists := r.templateValues[raw.Template]
 		if !exists {
 			return ValueConfig{}, ctx.error(fmt.Sprintf("value template %q not found", raw.Template))
 		}
-		result = template
+
+		// Apply overrides
+		result := template
+		if raw.Source != nil {
+			source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
+			if err != nil {
+				return ValueConfig{}, err
+			}
+			result.Source = source
+			result.SourceRef = sourceRef
+		}
+		if len(raw.Transforms) > 0 {
+			result.Transforms = raw.Transforms
+		}
+		if raw.Reset.Type != "" {
+			result.Reset = raw.Reset
+		}
+		return result, nil
 	}
 
-	// Step 2: Apply inline/overrides if object form
-	if raw.Inline != nil {
-		if err := r.applyValueOverrides(&result, raw.Inline, ctx); err != nil {
+	// Inline definition
+	if raw.Source != nil {
+		result := ValueConfig{}
+
+		source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
+		if err != nil {
 			return ValueConfig{}, err
 		}
+		result.Source = source
+		result.SourceRef = sourceRef
+
+		result.Transforms = raw.Transforms
+		result.Reset = raw.Reset
+
+		return result, nil
 	}
 
-	// Step 3: Validate final result
-	if err := r.validateValue(result, ctx); err != nil {
-		return ValueConfig{}, err
-	}
-
-	return result, nil
+	return ValueConfig{}, ctx.error("value must reference instance, template, or provide inline definition")
 }
 
-// applyValueOverrides applies field overrides to value config
-func (r *Resolver) applyValueOverrides(result *ValueConfig, overrides *RawValueConfig, ctx resolveContext) error {
-	// Override source (complete replacement)
-	if overrides.Source != nil {
-		source, err := r.resolveSource(overrides.Source, ctx)
-		if err != nil {
-			return err
+// resolveClockReference resolves a clock reference (supports instance/template/inline)
+func (r *Resolver) resolveClockReference(raw *RawClockReference, ctx resolveContext) (ClockConfig, *string, error) {
+	// Instance reference
+	if raw.Instance != "" {
+		instance, exists := r.instanceClocks[raw.Instance]
+		if !exists {
+			return ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock instance %q not found", raw.Instance))
 		}
-		result.Source = source
-	}
-
-	// Override clock (complete replacement, optional)
-	if overrides.Clock != nil {
-		clock, err := r.resolveClock(overrides.Clock, ctx)
-		if err != nil {
-			return err
+		// No overrides allowed for instances
+		if raw.Template != "" || raw.Type != nil || raw.Interval != 0 {
+			return ClockConfig{}, nil, ctx.error("cannot override instance clock")
 		}
-		result.Clock = clock
+		return instance, &raw.Instance, nil
 	}
 
-	// Override transforms (complete replacement)
-	if overrides.Transforms != nil {
-		result.Transforms = overrides.Transforms
+	// Template reference (with optional overrides)
+	if raw.Template != "" {
+		template, exists := r.templateClocks[raw.Template]
+		if !exists {
+			return ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock template %q not found", raw.Template))
+		}
+
+		// Apply overrides
+		result := template
+		if raw.Type != nil {
+			result.Type = *raw.Type
+		}
+		if raw.Interval != 0 {
+			result.Interval = raw.Interval
+		}
+		return result, nil, nil
 	}
 
-	// Override reset (complete replacement)
-	if overrides.Reset.Type != "" {
-		result.Reset = overrides.Reset
+	// Inline definition
+	if raw.Type != nil {
+		resolved := ClockConfig{
+			Type:     *raw.Type,
+			Interval: raw.Interval,
+		}
+
+		// Validate
+		if resolved.Type == "" {
+			return ClockConfig{}, nil, ctx.error("clock type required")
+		}
+		if resolved.Interval == 0 {
+			return ClockConfig{}, nil, ctx.error("clock interval required")
+		}
+
+		return resolved, nil, nil
 	}
 
-	return nil
+	return ClockConfig{}, nil, ctx.error("clock must reference instance, template, or provide inline definition")
 }
 
 // validateValue validates a resolved value config
@@ -281,13 +450,18 @@ func (r *Resolver) validateValue(value ValueConfig, ctx resolveContext) error {
 		return ctx.error("source required")
 	}
 
-	// Clock required - either on value (override) or source (inherited)
-	hasValueClock := value.Clock.Type != ""
-	hasSourceClock := value.Source.Clock.Type != ""
-
-	if !hasValueClock && !hasSourceClock {
-		return ctx.error("clock required (either on value or source)")
+	// Clock required in source
+	if value.Source.Clock.Type == "" {
+		return ctx.error("clock required in source")
 	}
 
 	return nil
+}
+
+// getStringValue safely dereferences a string pointer
+func getStringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
