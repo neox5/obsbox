@@ -6,7 +6,8 @@ import (
 
 // resolveTemplateValues resolves value templates (may reference source templates)
 func (r *Resolver) resolveTemplateValues() error {
-	for name, raw := range r.raw.Templates.Values {
+	for _, raw := range r.raw.Templates.Values {
+		name := raw.Name
 		if err := r.registerName(name, "template value"); err != nil {
 			return err
 		}
@@ -41,7 +42,8 @@ func (r *Resolver) resolveTemplateValues() error {
 
 // resolveInstanceValues resolves value instances (may reference template/instance sources)
 func (r *Resolver) resolveInstanceValues() error {
-	for name, raw := range r.raw.Instances.Values {
+	for _, raw := range r.raw.Instances.Values {
+		name := raw.Name
 		if err := r.registerName(name, "instance value"); err != nil {
 			return err
 		}

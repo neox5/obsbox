@@ -6,7 +6,8 @@ import (
 
 // resolveTemplateClocks resolves clock templates (no dependencies)
 func (r *Resolver) resolveTemplateClocks() error {
-	for name, raw := range r.raw.Templates.Clocks {
+	for _, raw := range r.raw.Templates.Clocks {
+		name := raw.Name
 		if err := r.registerName(name, "template clock"); err != nil {
 			return err
 		}
@@ -33,7 +34,8 @@ func (r *Resolver) resolveTemplateClocks() error {
 
 // resolveInstanceClocks resolves clock instances
 func (r *Resolver) resolveInstanceClocks() error {
-	for name, raw := range r.raw.Instances.Clocks {
+	for _, raw := range r.raw.Instances.Clocks {
+		name := raw.Name
 		if err := r.registerName(name, "instance clock"); err != nil {
 			return err
 		}

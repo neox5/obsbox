@@ -4,18 +4,18 @@
 templates:
   clocks:
     # Template clock 1
-    tick_1s:
+    - name: tick_1s
       type: periodic
       interval: 1s
 
     # Template clock 2
-    tick_fast:
+    - name: tick_fast
       type: periodic
       interval: 100ms
 
   sources:
     # Source template referencing clock template explicitly
-    base_events:
+    - name: base_events
       type: random_int
       clock:
         template: tick_1s
@@ -23,7 +23,7 @@ templates:
       max: 100
 
     # Source template with inline clock definition
-    fast_events:
+    - name: fast_events
       type: random_int
       clock:
         type: periodic
@@ -33,13 +33,13 @@ templates:
 
   values:
     # Value template referencing source template
-    counter_events:
+    - name: counter_events
       source:
         template: base_events
       transforms: [accumulate]
 
     # Value template referencing source with overrides
-    counter_fast:
+    - name: counter_fast
       source:
         template: base_events
         clock:
@@ -48,7 +48,7 @@ templates:
       transforms: [accumulate]
 
     # Value template with inline source
-    gauge_inline:
+    - name: gauge_inline
       source:
         type: random_int
         clock:

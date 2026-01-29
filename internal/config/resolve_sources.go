@@ -6,7 +6,8 @@ import (
 
 // resolveTemplateSources resolves source templates (may reference clock templates)
 func (r *Resolver) resolveTemplateSources() error {
-	for name, raw := range r.raw.Templates.Sources {
+	for _, raw := range r.raw.Templates.Sources {
+		name := raw.Name
 		if err := r.registerName(name, "template source"); err != nil {
 			return err
 		}
@@ -47,7 +48,8 @@ func (r *Resolver) resolveTemplateSources() error {
 
 // resolveInstanceSources resolves source instances (may reference template/instance clocks)
 func (r *Resolver) resolveInstanceSources() error {
-	for name, raw := range r.raw.Instances.Sources {
+	for _, raw := range r.raw.Instances.Sources {
+		name := raw.Name
 		if err := r.registerName(name, "instance source"); err != nil {
 			return err
 		}

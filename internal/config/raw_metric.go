@@ -13,6 +13,7 @@ type RawMetricConfig struct {
 
 // RawMetricDefinition - always full object, no self-reference
 type RawMetricDefinition struct {
+	Name       string             `yaml:"name,omitempty"` // Only used in templates array
 	Type       string             `yaml:"type"`
 	Value      *RawValueReference `yaml:"value,omitempty"`
 	Attributes map[string]string  `yaml:"attributes,omitempty"`

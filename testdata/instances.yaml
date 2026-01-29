@@ -3,23 +3,23 @@
 
 instances:
   clocks:
-    main_tick:
+    - name: main_tick
       type: periodic
       interval: 1s
 
-    fast_tick:
+    - name: fast_tick
       type: periodic
       interval: 100ms
 
   sources:
-    event_source:
+    - name: event_source
       type: random_int
       clock:
         instance: main_tick
       min: 0
       max: 100
 
-    error_source:
+    - name: error_source
       type: random_int
       clock:
         instance: fast_tick
@@ -27,7 +27,7 @@ instances:
       max: 10
 
   values:
-    total_events:
+    - name: total_events
       source:
         instance: event_source
       transforms: [accumulate]

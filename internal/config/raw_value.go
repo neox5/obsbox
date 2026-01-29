@@ -4,6 +4,7 @@ import "go.yaml.in/yaml/v4"
 
 // RawValueReference handles polymorphic value field (instance/template/inline)
 type RawValueReference struct {
+	Name       string              `yaml:"name,omitempty"` // Only used in templates/instances arrays
 	Instance   string              `yaml:"instance,omitempty"`
 	Template   string              `yaml:"template,omitempty"`
 	Source     *RawSourceReference `yaml:"source,omitempty"`

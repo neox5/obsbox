@@ -6,7 +6,8 @@ import (
 
 // resolveTemplateMetrics resolves metric templates (may reference value templates)
 func (r *Resolver) resolveTemplateMetrics() error {
-	for name, raw := range r.raw.Templates.Metrics {
+	for _, raw := range r.raw.Templates.Metrics {
+		name := raw.Name
 		if err := r.registerName(name, "template metric"); err != nil {
 			return err
 		}
