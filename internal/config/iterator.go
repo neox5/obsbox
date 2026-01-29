@@ -75,7 +75,7 @@ func (it *Iterator) ValueAt(index int) string {
 // Avoid using this for large ranges in production code.
 func (it *Iterator) AllValues() []string {
 	values := make([]string, it.count)
-	for i := 0; i < it.count; i++ {
+	for i := range it.count {
 		values[i] = it.ValueAt(i)
 	}
 	return values
@@ -185,7 +185,7 @@ func (g *CombinationGenerator) Generate(index int) map[string]string {
 // Iteration stops early if fn returns an error.
 // Only one combination exists in memory at a time.
 func (g *CombinationGenerator) ForEach(fn func(map[string]string) error) error {
-	for i := 0; i < g.total; i++ {
+	for i := range g.total {
 		combo := g.Generate(i)
 		if err := fn(combo); err != nil {
 			return err
@@ -216,7 +216,7 @@ func buildIteratorRegistry(rawIterators []RawIterator) (*IteratorRegistry, error
 
 		case "list":
 			// Validate list parameters
-			if raw.Values == nil || len(raw.Values) == 0 {
+			if len(raw.Values) == 0 {
 				return nil, fmt.Errorf("iterator %q: values required for list type",
 					raw.Name)
 			}

@@ -11,7 +11,7 @@ var iteratorPattern = regexp.MustCompile(`\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
 
 // findIteratorsInStruct finds all iterator references in a struct's string fields.
 // Returns unique iterator names found in {name} patterns.
-func findIteratorsInStruct(v interface{}) []string {
+func findIteratorsInStruct(v any) []string {
 	found := make(map[string]bool)
 	val := reflect.ValueOf(v)
 
@@ -47,7 +47,7 @@ func extractIteratorNames(s string) []string {
 
 // substituteIterators replaces {iterator_name} patterns with actual values.
 // Modifies string fields in-place using reflection.
-func substituteIterators(v interface{}, values map[string]string) {
+func substituteIterators(v any, values map[string]string) {
 	val := reflect.ValueOf(v)
 
 	walkStructFields(val, func(field reflect.Value) {
@@ -67,7 +67,7 @@ func substituteIterators(v interface{}, values map[string]string) {
 // Handles pointers, nested structs, but stops at certain types (time.Duration, etc.).
 func walkStructFields(val reflect.Value, fn func(reflect.Value)) {
 	// Dereference pointers
-	for val.Kind() == reflect.Ptr {
+	for val.Kind() == reflect.Pointer {
 		if val.IsNil() {
 			return
 		}
@@ -81,7 +81,7 @@ func walkStructFields(val reflect.Value, fn func(reflect.Value)) {
 
 	// Walk struct fields
 	typ := val.Type()
-	for i := 0; i < val.NumField(); i++ {
+	for i := range val.NumField() {
 		field := val.Field(i)
 		fieldType := typ.Field(i)
 
