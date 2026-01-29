@@ -1,6 +1,11 @@
-package config
+package configresolve
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/obsbox/internal/configparse"
+)
 
 // resolveTemplateValues resolves value templates (may reference source templates)
 func (r *Resolver) resolveTemplateValues() error {
@@ -11,11 +16,11 @@ func (r *Resolver) resolveTemplateValues() error {
 
 		ctx := resolveContext{}.push("value template", name)
 
-		resolved := ValueConfig{}
+		resolved := config.ValueConfig{}
 
 		// Resolve source (inline only for templates)
 		if raw.Source != nil {
-			source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
+			source, sourceRef, err := r.resolveSourceReference(raw.Source, ctx)
 			if err != nil {
 				return err
 			}
@@ -46,11 +51,11 @@ func (r *Resolver) resolveInstanceValues() error {
 
 		ctx := resolveContext{}.push("value instance", name)
 
-		resolved := ValueConfig{}
+		resolved := config.ValueConfig{}
 
 		// Resolve source reference if present
 		if raw.Source != nil {
-			source, sourceRef, err := r.resolveSourceFromReference(raw.Source, ctx)
+			source, sourceRef, err := r.resolveSourceReference(raw.Source, ctx)
 			if err != nil {
 				return err
 			}
@@ -74,18 +79,18 @@ func (r *Resolver) resolveInstanceValues() error {
 
 // resolveValue resolves a value reference into fully populated ValueConfig.
 // Handles three cases: instance reference, template with overrides, inline definition.
-func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (ValueConfig, error) {
+func (r *Resolver) resolveValue(raw *configparse.RawValueReference, ctx resolveContext) (config.ValueConfig, error) {
 	// Case 1: Instance reference - return stored config
 	if raw.Instance != "" {
 		instance, exists := r.instanceValues[raw.Instance]
 		if !exists {
-			return ValueConfig{}, ctx.error(fmt.Sprintf("value instance %q not found", raw.Instance))
+			return config.ValueConfig{}, ctx.error(fmt.Sprintf("value instance %q not found", raw.Instance))
 		}
 
 		// No overrides allowed for instances
 		if raw.Template != "" || raw.Source != nil ||
 			len(raw.Transforms) > 0 || raw.Reset.Type != "" {
-			return ValueConfig{}, ctx.error("cannot override instance value")
+			return config.ValueConfig{}, ctx.error("cannot override instance value")
 		}
 
 		return instance, nil // Returns full config with references preserved
@@ -95,7 +100,7 @@ func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (Val
 	if raw.Template != "" {
 		template, exists := r.templateValues[raw.Template]
 		if !exists {
-			return ValueConfig{}, ctx.error(fmt.Sprintf("value template %q not found", raw.Template))
+			return config.ValueConfig{}, ctx.error(fmt.Sprintf("value template %q not found", raw.Template))
 		}
 
 		// Start with template, apply overrides
@@ -104,7 +109,7 @@ func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (Val
 		if raw.Source != nil {
 			source, sourceRef, err := r.resolveSourceReference(raw.Source, ctx)
 			if err != nil {
-				return ValueConfig{}, err
+				return config.ValueConfig{}, err
 			}
 			result.Source = source
 			result.SourceRef = sourceRef // Preserve reference tracking
@@ -123,14 +128,14 @@ func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (Val
 
 	// Case 3: Inline definition - must have source
 	if raw.Source == nil {
-		return ValueConfig{}, ctx.error("value must reference instance, template, or provide inline source")
+		return config.ValueConfig{}, ctx.error("value must reference instance, template, or provide inline source")
 	}
 
-	result := ValueConfig{}
+	result := config.ValueConfig{}
 
 	source, sourceRef, err := r.resolveSourceReference(raw.Source, ctx)
 	if err != nil {
-		return ValueConfig{}, err
+		return config.ValueConfig{}, err
 	}
 	result.Source = source
 	result.SourceRef = sourceRef // Preserve reference tracking
@@ -141,13 +146,8 @@ func (r *Resolver) resolveValue(raw *RawValueReference, ctx resolveContext) (Val
 	return result, nil
 }
 
-// resolveValueFromReference is an alias for resolveValue for backward compatibility
-func (r *Resolver) resolveValueFromReference(raw *RawValueReference, ctx resolveContext) (ValueConfig, error) {
-	return r.resolveValue(raw, ctx)
-}
-
 // validateValue validates a resolved value config
-func (r *Resolver) validateValue(value ValueConfig, ctx resolveContext) error {
+func (r *Resolver) validateValue(value config.ValueConfig, ctx resolveContext) error {
 	// Source required
 	if value.Source.Type == "" {
 		return ctx.error("source required")

@@ -1,6 +1,11 @@
-package config
+package configresolve
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/obsbox/internal/configparse"
+)
 
 // resolveTemplateMetrics resolves metric templates (may reference value templates)
 func (r *Resolver) resolveTemplateMetrics() error {
@@ -11,13 +16,13 @@ func (r *Resolver) resolveTemplateMetrics() error {
 
 		ctx := resolveContext{}.push("metric template", name)
 
-		resolved := MetricConfig{
-			Type: MetricType(raw.Type),
+		resolved := config.MetricConfig{
+			Type: config.MetricType(raw.Type),
 		}
 
 		// Resolve value reference if present
 		if raw.Value != nil {
-			value, err := r.resolveValueFromReference(raw.Value, ctx)
+			value, err := r.resolveValue(raw.Value, ctx)
 			if err != nil {
 				return err
 			}
@@ -43,8 +48,8 @@ func (r *Resolver) resolveTemplateMetrics() error {
 }
 
 // resolveMetrics resolves final metrics from raw config
-func (r *Resolver) resolveMetrics() ([]MetricConfig, error) {
-	var metrics []MetricConfig
+func (r *Resolver) resolveMetrics() ([]config.MetricConfig, error) {
+	var metrics []config.MetricConfig
 
 	for _, raw := range r.raw.Metrics {
 		promName := raw.Name.GetPrometheusName()
@@ -62,18 +67,18 @@ func (r *Resolver) resolveMetrics() ([]MetricConfig, error) {
 }
 
 // resolveMetric resolves a single metric with template + overrides
-func (r *Resolver) resolveMetric(raw *RawMetricConfig, ctx resolveContext) (MetricConfig, error) {
-	result := MetricConfig{
+func (r *Resolver) resolveMetric(raw *configparse.RawMetricConfig, ctx resolveContext) (config.MetricConfig, error) {
+	result := config.MetricConfig{
 		PrometheusName: raw.Name.GetPrometheusName(),
 		OTELName:       raw.Name.GetOTELName(),
-		Type:           MetricType(raw.Type),
+		Type:           config.MetricType(raw.Type),
 		Description:    raw.Description,
 	}
 
 	// Always resolve to full ValueConfig
 	value, err := r.resolveValue(&raw.Value, ctx)
 	if err != nil {
-		return MetricConfig{}, err
+		return config.MetricConfig{}, err
 	}
 	result.Value = value
 
@@ -87,14 +92,14 @@ func (r *Resolver) resolveMetric(raw *RawMetricConfig, ctx resolveContext) (Metr
 
 	// Validate final metric
 	if err := r.validateMetric(result, ctx); err != nil {
-		return MetricConfig{}, err
+		return config.MetricConfig{}, err
 	}
 
 	return result, nil
 }
 
 // validateMetric validates a resolved metric config
-func (r *Resolver) validateMetric(metric MetricConfig, ctx resolveContext) error {
+func (r *Resolver) validateMetric(metric config.MetricConfig, ctx resolveContext) error {
 	// Names validated during raw syntax validation
 
 	// Type required
@@ -103,7 +108,7 @@ func (r *Resolver) validateMetric(metric MetricConfig, ctx resolveContext) error
 	}
 
 	// Validate type is valid
-	if metric.Type != MetricTypeCounter && metric.Type != MetricTypeGauge {
+	if metric.Type != config.MetricTypeCounter && metric.Type != config.MetricTypeGauge {
 		return ctx.error(fmt.Sprintf("invalid type: %s (must be counter or gauge)", metric.Type))
 	}
 

@@ -1,6 +1,11 @@
-package config
+package configresolve
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/obsbox/internal/configparse"
+)
 
 // resolveTemplateSources resolves source templates (may reference clock templates)
 func (r *Resolver) resolveTemplateSources() error {
@@ -11,7 +16,7 @@ func (r *Resolver) resolveTemplateSources() error {
 
 		ctx := resolveContext{}.push("source template", name)
 
-		resolved := SourceConfig{
+		resolved := config.SourceConfig{
 			Type: getStringValue(raw.Type),
 		}
 
@@ -52,7 +57,7 @@ func (r *Resolver) resolveInstanceSources() error {
 
 		ctx := resolveContext{}.push("source instance", name)
 
-		resolved := SourceConfig{
+		resolved := config.SourceConfig{
 			Type: getStringValue(raw.Type),
 		}
 
@@ -85,16 +90,16 @@ func (r *Resolver) resolveInstanceSources() error {
 }
 
 // resolveSourceReference resolves a source reference (supports instance/template/inline)
-func (r *Resolver) resolveSourceReference(raw *RawSourceReference, ctx resolveContext) (SourceConfig, *string, error) {
+func (r *Resolver) resolveSourceReference(raw *configparse.RawSourceReference, ctx resolveContext) (config.SourceConfig, *string, error) {
 	// Instance reference
 	if raw.Instance != "" {
 		instance, exists := r.instanceSources[raw.Instance]
 		if !exists {
-			return SourceConfig{}, nil, ctx.error(fmt.Sprintf("source instance %q not found", raw.Instance))
+			return config.SourceConfig{}, nil, ctx.error(fmt.Sprintf("source instance %q not found", raw.Instance))
 		}
 		// No overrides allowed for instances
 		if raw.Template != "" || raw.Type != nil || raw.Clock != nil || raw.Min != nil || raw.Max != nil {
-			return SourceConfig{}, nil, ctx.error("cannot override instance source")
+			return config.SourceConfig{}, nil, ctx.error("cannot override instance source")
 		}
 		return instance, &raw.Instance, nil // Return instance ref
 	}
@@ -103,7 +108,7 @@ func (r *Resolver) resolveSourceReference(raw *RawSourceReference, ctx resolveCo
 	if raw.Template != "" {
 		template, exists := r.templateSources[raw.Template]
 		if !exists {
-			return SourceConfig{}, nil, ctx.error(fmt.Sprintf("source template %q not found", raw.Template))
+			return config.SourceConfig{}, nil, ctx.error(fmt.Sprintf("source template %q not found", raw.Template))
 		}
 
 		// Apply overrides
@@ -114,7 +119,7 @@ func (r *Resolver) resolveSourceReference(raw *RawSourceReference, ctx resolveCo
 		if raw.Clock != nil {
 			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
 			if err != nil {
-				return SourceConfig{}, nil, err
+				return config.SourceConfig{}, nil, err
 			}
 			result.Clock = clock
 			result.ClockRef = clockRef
@@ -130,14 +135,14 @@ func (r *Resolver) resolveSourceReference(raw *RawSourceReference, ctx resolveCo
 
 	// Inline definition
 	if raw.Type != nil {
-		result := SourceConfig{}
+		result := config.SourceConfig{}
 		result.Type = *raw.Type
 
 		// Resolve clock if present
 		if raw.Clock != nil {
 			clock, clockRef, err := r.resolveClockReference(raw.Clock, ctx)
 			if err != nil {
-				return SourceConfig{}, nil, err
+				return config.SourceConfig{}, nil, err
 			}
 			result.Clock = clock
 			result.ClockRef = clockRef
@@ -153,16 +158,11 @@ func (r *Resolver) resolveSourceReference(raw *RawSourceReference, ctx resolveCo
 
 		// Validate
 		if result.Type == "" {
-			return SourceConfig{}, nil, ctx.error("source type required")
+			return config.SourceConfig{}, nil, ctx.error("source type required")
 		}
 
 		return result, nil, nil
 	}
 
-	return SourceConfig{}, nil, ctx.error("source must reference instance, template, or provide inline definition")
-}
-
-// resolveSourceFromReference is an alias for resolveSourceReference for backward compatibility
-func (r *Resolver) resolveSourceFromReference(raw *RawSourceReference, ctx resolveContext) (SourceConfig, *string, error) {
-	return r.resolveSourceReference(raw, ctx)
+	return config.SourceConfig{}, nil, ctx.error("source must reference instance, template, or provide inline definition")
 }

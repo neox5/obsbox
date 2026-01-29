@@ -4,8 +4,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"go.yaml.in/yaml/v4"
 )
 
 var attributeNameRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
@@ -16,7 +14,7 @@ type MetricConfig struct {
 	OTELName       string
 	Type           MetricType
 	Description    string
-	Value          ValueConfig // Changed from: ValueRef ValueReference
+	Value          ValueConfig
 	Attributes     map[string]string
 }
 
@@ -27,52 +25,6 @@ const (
 	MetricTypeCounter MetricType = "counter"
 	MetricTypeGauge   MetricType = "gauge"
 )
-
-// MetricNameConfig supports both short and full forms for metric names
-type MetricNameConfig struct {
-	Simple     string
-	Prometheus string
-	OTEL       string
-}
-
-// UnmarshalYAML handles both string and object forms for metric names
-func (m *MetricNameConfig) UnmarshalYAML(value *yaml.Node) error {
-	// Try string form first (short form)
-	var simple string
-	if err := value.Decode(&simple); err == nil {
-		m.Simple = simple
-		return nil
-	}
-
-	// Try full form (object)
-	type nameConfig struct {
-		Prometheus string `yaml:"prometheus"`
-		OTEL       string `yaml:"otel"`
-	}
-	var full nameConfig
-	if err := value.Decode(&full); err != nil {
-		return err
-	}
-	m.Prometheus = full.Prometheus
-	m.OTEL = full.OTEL
-	return nil
-}
-
-// GetPrometheusName returns the Prometheus metric name
-func (m *MetricNameConfig) GetPrometheusName() string {
-	if m.Simple != "" {
-		return m.Simple
-	}
-	return m.Prometheus
-}
-
-// GetOTELName returns the OTEL metric name
-func (m *MetricNameConfig) GetOTELName() string {
-	if m.Simple != "" {
-		return m.Simple
-	}
-	return m.OTEL
-}
 
 // isValidAttributeName checks if an attribute name follows conventions
 func isValidAttributeName(name string) bool {
@@ -106,4 +58,15 @@ type SourceConfig struct {
 type ClockConfig struct {
 	Type     string
 	Interval time.Duration
+}
+
+// TransformConfig defines a transform operation
+type TransformConfig struct {
+	Type string
+}
+
+// ResetConfig defines reset behavior
+type ResetConfig struct {
+	Type  string
+	Value int
 }

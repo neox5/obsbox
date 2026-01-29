@@ -3,8 +3,6 @@ package config
 import (
 	"fmt"
 	"time"
-
-	"go.yaml.in/yaml/v4"
 )
 
 const (
@@ -21,43 +19,19 @@ const (
 
 // OTELExportConfig defines OTEL push settings.
 type OTELExportConfig struct {
-	Enabled   bool              `yaml:"enabled"`
-	Transport string            `yaml:"transport"`
-	Host      string            `yaml:"host"`
-	Port      int               `yaml:"port"`
-	Interval  IntervalConfig    `yaml:"interval"`
-	Resource  map[string]string `yaml:"resource,omitempty"`
-	Headers   map[string]string `yaml:"headers,omitempty"`
+	Enabled   bool
+	Transport string
+	Host      string
+	Port      int
+	Interval  IntervalConfig
+	Resource  map[string]string
+	Headers   map[string]string
 }
 
 // IntervalConfig defines read and push intervals for OTEL.
 type IntervalConfig struct {
 	Read time.Duration
 	Push time.Duration
-}
-
-// UnmarshalYAML handles both simple (10s) and detailed (read/push) forms.
-func (i *IntervalConfig) UnmarshalYAML(value *yaml.Node) error {
-	// Try simple duration form first
-	var simple time.Duration
-	if err := value.Decode(&simple); err == nil {
-		i.Read = simple
-		i.Push = simple
-		return nil
-	}
-
-	// Fall back to detailed form
-	type intervalConfig struct {
-		Read time.Duration `yaml:"read"`
-		Push time.Duration `yaml:"push"`
-	}
-	var detailed intervalConfig
-	if err := value.Decode(&detailed); err != nil {
-		return err
-	}
-	i.Read = detailed.Read
-	i.Push = detailed.Push
-	return nil
 }
 
 // Validate applies defaults and validates OTEL configuration.

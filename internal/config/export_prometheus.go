@@ -10,9 +10,9 @@ const (
 
 // PrometheusExportConfig defines Prometheus pull endpoint settings.
 type PrometheusExportConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Port    int    `yaml:"port"`
-	Path    string `yaml:"path"`
+	Enabled bool
+	Port    int
+	Path    string
 }
 
 // Validate applies defaults and validates Prometheus configuration.

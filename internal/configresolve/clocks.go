@@ -1,6 +1,11 @@
-package config
+package configresolve
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/obsbox/internal/configparse"
+)
 
 // resolveTemplateClocks resolves clock templates (no dependencies)
 func (r *Resolver) resolveTemplateClocks() error {
@@ -11,7 +16,7 @@ func (r *Resolver) resolveTemplateClocks() error {
 
 		ctx := resolveContext{}.push("clock template", name)
 
-		resolved := ClockConfig{
+		resolved := config.ClockConfig{
 			Type:     getStringValue(raw.Type),
 			Interval: raw.Interval,
 		}
@@ -38,7 +43,7 @@ func (r *Resolver) resolveInstanceClocks() error {
 
 		ctx := resolveContext{}.push("clock instance", name)
 
-		resolved := ClockConfig{
+		resolved := config.ClockConfig{
 			Type:     getStringValue(raw.Type),
 			Interval: raw.Interval,
 		}
@@ -57,16 +62,16 @@ func (r *Resolver) resolveInstanceClocks() error {
 }
 
 // resolveClockReference resolves a clock reference (supports instance/template/inline)
-func (r *Resolver) resolveClockReference(raw *RawClockReference, ctx resolveContext) (ClockConfig, *string, error) {
+func (r *Resolver) resolveClockReference(raw *configparse.RawClockReference, ctx resolveContext) (config.ClockConfig, *string, error) {
 	// Instance reference
 	if raw.Instance != "" {
 		instance, exists := r.instanceClocks[raw.Instance]
 		if !exists {
-			return ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock instance %q not found", raw.Instance))
+			return config.ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock instance %q not found", raw.Instance))
 		}
 		// No overrides allowed for instances
 		if raw.Template != "" || raw.Type != nil || raw.Interval != 0 {
-			return ClockConfig{}, nil, ctx.error("cannot override instance clock")
+			return config.ClockConfig{}, nil, ctx.error("cannot override instance clock")
 		}
 		return instance, &raw.Instance, nil
 	}
@@ -75,7 +80,7 @@ func (r *Resolver) resolveClockReference(raw *RawClockReference, ctx resolveCont
 	if raw.Template != "" {
 		template, exists := r.templateClocks[raw.Template]
 		if !exists {
-			return ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock template %q not found", raw.Template))
+			return config.ClockConfig{}, nil, ctx.error(fmt.Sprintf("clock template %q not found", raw.Template))
 		}
 
 		// Apply overrides
@@ -91,21 +96,21 @@ func (r *Resolver) resolveClockReference(raw *RawClockReference, ctx resolveCont
 
 	// Inline definition
 	if raw.Type != nil {
-		resolved := ClockConfig{
+		resolved := config.ClockConfig{
 			Type:     *raw.Type,
 			Interval: raw.Interval,
 		}
 
 		// Validate
 		if resolved.Type == "" {
-			return ClockConfig{}, nil, ctx.error("clock type required")
+			return config.ClockConfig{}, nil, ctx.error("clock type required")
 		}
 		if resolved.Interval == 0 {
-			return ClockConfig{}, nil, ctx.error("clock interval required")
+			return config.ClockConfig{}, nil, ctx.error("clock interval required")
 		}
 
 		return resolved, nil, nil
 	}
 
-	return ClockConfig{}, nil, ctx.error("clock must reference instance, template, or provide inline definition")
+	return config.ClockConfig{}, nil, ctx.error("clock must reference instance, template, or provide inline definition")
 }
