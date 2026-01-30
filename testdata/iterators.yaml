@@ -10,6 +10,24 @@ iterators:
     type: list
     values: [us, eu]
 
+templates:
+  clocks:
+    # Clock templates with iterator expansion
+    # Expands to: template_tick_0_us, template_tick_0_eu, template_tick_1_us, template_tick_1_eu, template_tick_2_us, template_tick_2_eu
+    - name: template_tick_{i}_{region}
+      type: periodic
+      interval: 1s
+
+  sources:
+    # Source templates with iterator expansion
+    # Expands to: template_events_0_us, template_events_0_eu, template_events_1_us, template_events_1_eu, template_events_2_us, template_events_2_eu
+    - name: template_events_{i}_{region}
+      type: random_int
+      clock:
+        template: template_tick_{i}_{region}
+      min: 0
+      max: 100
+
 instances:
   clocks:
     # Clock instances with iterator expansion
@@ -35,14 +53,29 @@ instances:
         instance: events_0_us
       transforms: [accumulate]
 
+    # Value instance using template source reference
+    - name: total_template_events_0_eu
+      source:
+        template: template_events_0_eu
+      transforms: [accumulate]
+
 metrics:
   - name: test_events_total
     type: counter
-    description: "Test metric using expanded clock and source"
+    description: "Test metric using expanded instance clock and source"
     value:
       instance: total_events_0_us
     attributes:
       region: us
+      index: "0"
+
+  - name: test_template_events_total
+    type: counter
+    description: "Test metric using expanded template source"
+    value:
+      instance: total_template_events_0_eu
+    attributes:
+      region: eu
       index: "0"
 
 export:
