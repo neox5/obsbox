@@ -8,7 +8,12 @@ import (
 func Load(path string) (*Config, error) {
 	raw, err := Parse(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Explicit expansion step
+	if err := Expand(raw); err != nil {
+		return nil, fmt.Errorf("failed to expand config: %w", err)
 	}
 
 	cfg, err := Resolve(raw)

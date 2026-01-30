@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 )
@@ -8,10 +10,84 @@ import (
 // iteratorPattern matches {iterator_name} placeholders in strings
 var iteratorPattern = regexp.MustCompile(`\{([a-zA-Z_][a-zA-Z0-9_]*)\}`)
 
-// IteratorExpandable types can find and substitute {placeholder} patterns
-type IteratorExpandable interface {
-	FindPlaceholders() []string
-	SubstitutePlaceholders(iteratorValues map[string]string)
+// Expander orchestrates iterator expansion across all configuration types.
+type Expander struct {
+	registry *IteratorRegistry
+}
+
+// NewExpander creates an expander from iterator definitions.
+func NewExpander(iterators []RawIterator) (*Expander, error) {
+	if len(iterators) == 0 {
+		return &Expander{registry: nil}, nil
+	}
+
+	registry, err := buildIteratorRegistry(iterators)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build iterator registry: %w", err)
+	}
+
+	slog.Debug("iterator registry built", "count", len(iterators))
+	for _, it := range registry.iterators {
+		slog.Debug("registered iterator", "name", it.Name(), "count", it.Len())
+	}
+
+	return &Expander{registry: registry}, nil
+}
+
+// ExpandClocks expands clock references containing iterator placeholders.
+func (e *Expander) ExpandClocks(clocks []RawClockReference) ([]RawClockReference, error) {
+	if e.registry == nil {
+		return clocks, nil // No iterators, nothing to expand
+	}
+
+	return expandClocks(clocks, e.registry)
+}
+
+// ExpandSources expands source references containing iterator placeholders.
+func (e *Expander) ExpandSources(sources []RawSourceReference) ([]RawSourceReference, error) {
+	if e.registry == nil {
+		return sources, nil
+	}
+
+	return expandSources(sources, e.registry)
+}
+
+// Expand performs iterator expansion on raw configuration.
+// Mutates raw config in place by replacing arrays with expanded versions.
+func Expand(raw *RawConfig) error {
+	expander, err := NewExpander(raw.Iterators)
+	if err != nil {
+		return err
+	}
+
+	// Expand template clocks
+	raw.Templates.Clocks, err = expander.ExpandClocks(raw.Templates.Clocks)
+	if err != nil {
+		return fmt.Errorf("failed to expand template clocks: %w", err)
+	}
+
+	// Expand instance clocks
+	raw.Instances.Clocks, err = expander.ExpandClocks(raw.Instances.Clocks)
+	if err != nil {
+		return fmt.Errorf("failed to expand instance clocks: %w", err)
+	}
+
+	// Expand template sources
+	raw.Templates.Sources, err = expander.ExpandSources(raw.Templates.Sources)
+	if err != nil {
+		return fmt.Errorf("failed to expand template sources: %w", err)
+	}
+
+	// Expand instance sources
+	raw.Instances.Sources, err = expander.ExpandSources(raw.Instances.Sources)
+	if err != nil {
+		return fmt.Errorf("failed to expand instance sources: %w", err)
+	}
+
+	// Clear consumed iterators
+	raw.Iterators = nil
+
+	return nil
 }
 
 // substitutePlaceholders replaces {name} patterns in a string with values

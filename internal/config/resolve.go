@@ -42,12 +42,9 @@ func newResolver(raw *RawConfig) *Resolver {
 
 // Resolve performs hierarchical template and instance resolution and builds final config
 func Resolve(raw *RawConfig) (*Config, error) {
-	// Phase 0: Iterator expansion
-	if err := expandIterators(raw); err != nil {
-		return nil, err
-	}
+	// Expansion must happen before calling Resolve
+	// This is enforced by Load() pipeline
 
-	// Phase 1-2: Resolve by dependency order
 	slog.Debug("--- Template and Instance Resolution ---")
 	resolver := newResolver(raw)
 
@@ -105,52 +102,6 @@ func Resolve(raw *RawConfig) (*Config, error) {
 
 	// Phase 6: Assemble final config
 	return buildConfig(resolver, metrics, export, settings), nil
-}
-
-// expandIterators expands all iterator placeholders in raw config
-func expandIterators(raw *RawConfig) error {
-	if len(raw.Iterators) == 0 {
-		return nil
-	}
-
-	registry, err := buildIteratorRegistry(raw.Iterators)
-	if err != nil {
-		return fmt.Errorf("failed to build iterator registry: %w", err)
-	}
-
-	slog.Debug("resolved iterators", "count", len(raw.Iterators))
-	for _, it := range registry.iterators {
-		slog.Debug("iterator", "iterator", it)
-	}
-
-	// Expand template clocks
-	raw.Templates.Clocks, err = expandClocks(raw.Templates.Clocks, registry)
-	if err != nil {
-		return fmt.Errorf("failed to expand template clocks: %w", err)
-	}
-
-	// Expand instance clocks
-	raw.Instances.Clocks, err = expandClocks(raw.Instances.Clocks, registry)
-	if err != nil {
-		return fmt.Errorf("failed to expand instance clocks: %w", err)
-	}
-
-	// Expand template sources
-	raw.Templates.Sources, err = expandSources(raw.Templates.Sources, registry)
-	if err != nil {
-		return fmt.Errorf("failed to expand template sources: %w", err)
-	}
-
-	// Expand instance sources
-	raw.Instances.Sources, err = expandSources(raw.Instances.Sources, registry)
-	if err != nil {
-		return fmt.Errorf("failed to expand instance sources: %w", err)
-	}
-
-	// Clear iterators - they've been consumed
-	raw.Iterators = nil
-
-	return nil
 }
 
 // buildConfig assembles the final configuration
