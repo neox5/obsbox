@@ -12,8 +12,8 @@ type RawSourceReference struct {
 }
 
 // DeepCopy creates an independent copy of the source reference
-func (s *RawSourceReference) DeepCopy() RawSourceReference {
-	clone := *s
+func (s RawSourceReference) DeepCopy() RawSourceReference {
+	clone := s
 
 	// Deep copy pointer fields
 	if s.Type != nil {
@@ -40,7 +40,7 @@ func (s *RawSourceReference) DeepCopy() RawSourceReference {
 	return clone
 }
 
-// FindPlaceholders implements IteratorExpandable for RawSourceReference
+// FindPlaceholders implements expandable for RawSourceReference
 func (s *RawSourceReference) FindPlaceholders() []string {
 	found := make(map[string]bool)
 
@@ -70,7 +70,7 @@ func (s *RawSourceReference) FindPlaceholders() []string {
 	return result
 }
 
-// SubstitutePlaceholders implements IteratorExpandable for RawSourceReference
+// SubstitutePlaceholders implements expandable for RawSourceReference
 func (s *RawSourceReference) SubstitutePlaceholders(iteratorValues map[string]string) {
 	s.Name = substitutePlaceholders(s.Name, iteratorValues)
 	s.Instance = substitutePlaceholders(s.Instance, iteratorValues)

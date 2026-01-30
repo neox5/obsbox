@@ -12,8 +12,8 @@ type RawClockReference struct {
 }
 
 // DeepCopy creates an independent copy of the clock reference
-func (c *RawClockReference) DeepCopy() RawClockReference {
-	clone := *c
+func (c RawClockReference) DeepCopy() RawClockReference {
+	clone := c
 
 	// Deep copy pointer fields
 	if c.Type != nil {
@@ -24,7 +24,7 @@ func (c *RawClockReference) DeepCopy() RawClockReference {
 	return clone
 }
 
-// FindPlaceholders implements IteratorExpandable for RawClockReference
+// FindPlaceholders implements expandable for RawClockReference
 func (c *RawClockReference) FindPlaceholders() []string {
 	found := make(map[string]bool)
 
@@ -47,7 +47,7 @@ func (c *RawClockReference) FindPlaceholders() []string {
 	return result
 }
 
-// SubstitutePlaceholders implements IteratorExpandable for RawClockReference
+// SubstitutePlaceholders implements expandable for RawClockReference
 func (c *RawClockReference) SubstitutePlaceholders(iteratorValues map[string]string) {
 	c.Name = substitutePlaceholders(c.Name, iteratorValues)
 	c.Instance = substitutePlaceholders(c.Instance, iteratorValues)

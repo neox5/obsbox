@@ -34,22 +34,68 @@ func NewExpander(iterators []RawIterator) (*Expander, error) {
 	return &Expander{registry: registry}, nil
 }
 
-// ExpandClocks expands clock references containing iterator placeholders.
-func (e *Expander) ExpandClocks(clocks []RawClockReference) ([]RawClockReference, error) {
-	if e.registry == nil {
-		return clocks, nil // No iterators, nothing to expand
+// expandable defines operations needed for generic expansion with pointer receiver support
+type expandable[T any, PT interface {
+	*T
+	FindPlaceholders() []string
+	SubstitutePlaceholders(map[string]string)
+}] interface {
+	DeepCopy() T
+}
+
+// expand is the generic expansion implementation using two-type-parameter pattern
+func expand[T expandable[T, PT], PT interface {
+	*T
+	FindPlaceholders() []string
+	SubstitutePlaceholders(map[string]string)
+}](items []T, registry *IteratorRegistry, entityType string) ([]T, error) {
+	if registry == nil {
+		return items, nil
 	}
 
-	return expandClocks(clocks, e.registry)
+	expanded := make([]T, 0)
+
+	for i, item := range items {
+		placeholders := PT(&item).FindPlaceholders()
+
+		if len(placeholders) == 0 {
+			expanded = append(expanded, item)
+			continue
+		}
+
+		iterators, err := registry.GetIterators(placeholders)
+		if err != nil {
+			return nil, fmt.Errorf("%s at index %d: %w", entityType, i, err)
+		}
+
+		gen := NewCombinationGenerator(iterators)
+
+		if gen.Total() == 0 {
+			return nil, fmt.Errorf("%s at index %d: iterator combination produces zero results", entityType, i)
+		}
+
+		err = gen.ForEach(func(iteratorValues map[string]string) error {
+			clone := item.DeepCopy()
+			PT(&clone).SubstitutePlaceholders(iteratorValues)
+			expanded = append(expanded, clone)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("%s at index %d: %w", entityType, i, err)
+		}
+	}
+
+	return expanded, nil
+}
+
+// ExpandClocks expands clock references containing iterator placeholders.
+func (e *Expander) ExpandClocks(clocks []RawClockReference) ([]RawClockReference, error) {
+	return expand(clocks, e.registry, "clock")
 }
 
 // ExpandSources expands source references containing iterator placeholders.
 func (e *Expander) ExpandSources(sources []RawSourceReference) ([]RawSourceReference, error) {
-	if e.registry == nil {
-		return sources, nil
-	}
-
-	return expandSources(sources, e.registry)
+	return expand(sources, e.registry, "source")
 }
 
 // Expand performs iterator expansion on raw configuration.
