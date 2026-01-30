@@ -2,7 +2,78 @@ package config
 
 import "fmt"
 
-// expandSources expands source references that contain iterator placeholders.
+// deepCopySource creates an independent copy of a source reference
+func deepCopySource(src RawSourceReference) RawSourceReference {
+	clone := src
+
+	// Deep copy pointer fields
+	if src.Type != nil {
+		typeCopy := *src.Type
+		clone.Type = &typeCopy
+	}
+
+	if src.Min != nil {
+		minCopy := *src.Min
+		clone.Min = &minCopy
+	}
+
+	if src.Max != nil {
+		maxCopy := *src.Max
+		clone.Max = &maxCopy
+	}
+
+	// Deep copy nested clock reference
+	if src.Clock != nil {
+		clockCopy := deepCopyClock(*src.Clock)
+		clone.Clock = &clockCopy
+	}
+
+	return clone
+}
+
+// FindPlaceholders implements IteratorExpandable for RawSourceReference
+func (s *RawSourceReference) FindPlaceholders() []string {
+	found := make(map[string]bool)
+
+	// Scan own string fields
+	for _, name := range extractPlaceholderNames(s.Name) {
+		found[name] = true
+	}
+	for _, name := range extractPlaceholderNames(s.Instance) {
+		found[name] = true
+	}
+	for _, name := range extractPlaceholderNames(s.Template) {
+		found[name] = true
+	}
+
+	// Recursively scan nested clock
+	if s.Clock != nil {
+		for _, name := range s.Clock.FindPlaceholders() {
+			found[name] = true
+		}
+	}
+
+	// Convert to slice
+	result := make([]string, 0, len(found))
+	for name := range found {
+		result = append(result, name)
+	}
+	return result
+}
+
+// SubstitutePlaceholders implements IteratorExpandable for RawSourceReference
+func (s *RawSourceReference) SubstitutePlaceholders(iteratorValues map[string]string) {
+	s.Name = substitutePlaceholders(s.Name, iteratorValues)
+	s.Instance = substitutePlaceholders(s.Instance, iteratorValues)
+	s.Template = substitutePlaceholders(s.Template, iteratorValues)
+
+	// Recursively substitute in nested clock
+	if s.Clock != nil {
+		s.Clock.SubstitutePlaceholders(iteratorValues)
+	}
+}
+
+// expandSources expands source references containing iterator placeholders.
 // Returns expanded array with iterator placeholders substituted.
 func expandSources(
 	sources []RawSourceReference,
@@ -11,11 +82,11 @@ func expandSources(
 	expanded := make([]RawSourceReference, 0)
 
 	for i, source := range sources {
-		// Find all iterators referenced in this source
-		usedIterators := findIteratorsInStruct(source)
+		// Find placeholders using type-specific method (includes nested clock)
+		usedIterators := source.FindPlaceholders()
 
 		if len(usedIterators) == 0 {
-			// No iterators - keep source as-is
+			// No placeholders - keep source as-is
 			expanded = append(expanded, source)
 			continue
 		}
@@ -33,22 +104,11 @@ func expandSources(
 			return nil, fmt.Errorf("source at index %d: iterator combination produces zero results", i)
 		}
 
-		// Pre-allocate space for all expanded sources
-		startIdx := len(expanded)
-		expanded = append(expanded, make([]RawSourceReference, gen.Total())...)
-
 		// Generate one source per combination
-		currentIdx := startIdx
-		err = gen.ForEach(func(combo map[string]string) error {
-			// Clone the source (struct copy)
-			clone := source
-
-			// Substitute iterator placeholders with actual values
-			substituteIterators(&clone, combo)
-
-			// Store expanded source
-			expanded[currentIdx] = clone
-			currentIdx++
+		err = gen.ForEach(func(iteratorValues map[string]string) error {
+			clone := deepCopySource(source)
+			clone.SubstitutePlaceholders(iteratorValues)
+			expanded = append(expanded, clone)
 			return nil
 		})
 		if err != nil {
