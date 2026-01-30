@@ -1,0 +1,90 @@
+iterators:
+  - name: queue_id
+    type: range
+    start: 1
+    end: 100
+
+templates:
+  clocks:
+    - name: tick_mqput
+      type: periodic
+      interval: 200ms
+
+  sources:
+    - name: mqput_events
+      type: random_int
+      clock:
+        template: tick_mqput
+      min: 0
+      max: 10
+
+  values:
+    - name: mqput_total
+      source:
+        template: mqput_events
+      transforms: [accumulate]
+
+    - name: mqput_rate
+      source:
+        template: mqput_events
+      transforms: [accumulate]
+      reset: on_read
+
+instances:
+  clocks:
+    - name: main_clock
+      type: periodic
+      interval: 200ms
+
+  sources:
+    - name: mqput_source_{queue_id}
+      type: random_int
+      clock:
+        instance: main_clock
+      min: 0
+      max: 10
+
+  values:
+    - name: mqput_counter_{queue_id}
+      source:
+        instance: mqput_source_{queue_id}
+      transforms: [accumulate]
+
+    - name: mqput_gauge_{queue_id}
+      source:
+        instance: mqput_source_{queue_id}
+      transforms: [accumulate]
+      reset: on_read
+
+metrics:
+  - name:
+      prometheus: ibmmq_queue_mqput_count_total
+      otel: ibmmq.queue.mqput.count
+    type: counter
+    description: "Total MQ PUT operations since start"
+    value:
+      instance: mqput_counter_{queue_id}
+    attributes:
+      queue: "QUEUE.{queue_id}"
+      qmgr: QM1
+
+  - name:
+      prometheus: ibmmq_queue_mqput_count_ratio
+      otel: ibmmq.queue.mqput.rate
+    type: gauge
+    description: "Recent MQ PUT operations in window"
+    value:
+      instance: mqput_gauge_{queue_id}
+    attributes:
+      queue: "QUEUE.{queue_id}"
+      qmgr: QM1
+
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+settings:
+  internal_metrics:
+    enabled: false
