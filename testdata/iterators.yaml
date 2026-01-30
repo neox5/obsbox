@@ -1,4 +1,4 @@
-# Test configuration for iterator expansion (clocks and sources)
+# Test configuration for iterator expansion (clocks, sources, and values)
 
 iterators:
   - name: i
@@ -28,6 +28,14 @@ templates:
       min: 0
       max: 100
 
+  values:
+    # Value templates with iterator expansion
+    # Expands to: template_total_0_us, template_total_0_eu, template_total_1_us, template_total_1_eu, template_total_2_us, template_total_2_eu
+    - name: template_total_{i}_{region}
+      source:
+        template: template_events_{i}_{region}
+      transforms: [accumulate]
+
 instances:
   clocks:
     # Clock instances with iterator expansion
@@ -47,10 +55,11 @@ instances:
       max: 100
 
   values:
-    # Value instances referencing expanded sources
-    - name: total_events_0_us
+    # Value instances with iterator expansion referencing expanded sources
+    # Expands to: total_events_0_us, total_events_0_eu, total_events_1_us, total_events_1_eu, total_events_2_us, total_events_2_eu
+    - name: total_events_{i}_{region}
       source:
-        instance: events_0_us
+        instance: events_{i}_{region}
       transforms: [accumulate]
 
     # Value instance using template source reference
@@ -62,7 +71,7 @@ instances:
 metrics:
   - name: test_events_total
     type: counter
-    description: "Test metric using expanded instance clock and source"
+    description: "Test metric using expanded instance clock, source, and value"
     value:
       instance: total_events_0_us
     attributes:
@@ -71,9 +80,9 @@ metrics:
 
   - name: test_template_events_total
     type: counter
-    description: "Test metric using expanded template source"
+    description: "Test metric using expanded template value"
     value:
-      instance: total_template_events_0_eu
+      template: template_total_0_eu
     attributes:
       region: eu
       index: "0"

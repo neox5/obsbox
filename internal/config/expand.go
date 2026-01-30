@@ -98,6 +98,11 @@ func (e *Expander) ExpandSources(sources []RawSourceReference) ([]RawSourceRefer
 	return expand(sources, e.registry, "source")
 }
 
+// ExpandValues expands value references containing iterator placeholders.
+func (e *Expander) ExpandValues(values []RawValueReference) ([]RawValueReference, error) {
+	return expand(values, e.registry, "value")
+}
+
 // Expand performs iterator expansion on raw configuration.
 // Mutates raw config in place by replacing arrays with expanded versions.
 func Expand(raw *RawConfig) error {
@@ -128,6 +133,18 @@ func Expand(raw *RawConfig) error {
 	raw.Instances.Sources, err = expander.ExpandSources(raw.Instances.Sources)
 	if err != nil {
 		return fmt.Errorf("failed to expand instance sources: %w", err)
+	}
+
+	// Expand template values
+	raw.Templates.Values, err = expander.ExpandValues(raw.Templates.Values)
+	if err != nil {
+		return fmt.Errorf("failed to expand template values: %w", err)
+	}
+
+	// Expand instance values
+	raw.Instances.Values, err = expander.ExpandValues(raw.Instances.Values)
+	if err != nil {
+		return fmt.Errorf("failed to expand instance values: %w", err)
 	}
 
 	// Clear consumed iterators

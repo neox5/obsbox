@@ -12,6 +12,69 @@ type RawValueReference struct {
 	Reset      ResetConfig         `yaml:"reset,omitempty"`
 }
 
+// DeepCopy creates an independent copy of the value reference
+func (v RawValueReference) DeepCopy() RawValueReference {
+	clone := v
+
+	// Deep copy nested source reference
+	if v.Source != nil {
+		sourceCopy := v.Source.DeepCopy()
+		clone.Source = &sourceCopy
+	}
+
+	// Deep copy transforms slice
+	if len(v.Transforms) > 0 {
+		clone.Transforms = make([]TransformConfig, len(v.Transforms))
+		copy(clone.Transforms, v.Transforms)
+	}
+
+	// Reset config is plain struct, no pointers to copy
+
+	return clone
+}
+
+// FindPlaceholders implements expandable for RawValueReference
+func (v *RawValueReference) FindPlaceholders() []string {
+	found := make(map[string]bool)
+
+	// Scan own string fields
+	for _, name := range extractPlaceholderNames(v.Name) {
+		found[name] = true
+	}
+	for _, name := range extractPlaceholderNames(v.Instance) {
+		found[name] = true
+	}
+	for _, name := range extractPlaceholderNames(v.Template) {
+		found[name] = true
+	}
+
+	// Recursively scan nested source
+	if v.Source != nil {
+		for _, name := range v.Source.FindPlaceholders() {
+			found[name] = true
+		}
+	}
+
+	// Convert to slice
+	result := make([]string, 0, len(found))
+	for name := range found {
+		result = append(result, name)
+	}
+	return result
+}
+
+// SubstitutePlaceholders implements expandable for RawValueReference
+func (v *RawValueReference) SubstitutePlaceholders(iteratorValues map[string]string) {
+	v.Name = substitutePlaceholders(v.Name, iteratorValues)
+	v.Instance = substitutePlaceholders(v.Instance, iteratorValues)
+	v.Template = substitutePlaceholders(v.Template, iteratorValues)
+
+	// Recursively substitute in nested source
+	if v.Source != nil {
+		v.Source.SubstitutePlaceholders(iteratorValues)
+	}
+}
+
 // TransformConfig defines a transform operation
 type TransformConfig struct {
 	Type string
