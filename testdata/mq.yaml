@@ -2,7 +2,7 @@ iterators:
   - name: q
     type: range
     start: 1
-    end: 100
+    end: 10
 
 instances:
   sources:
@@ -18,18 +18,18 @@ instances:
     - name: v_counter_{q}
       source:
         instance: src_int_{q}
-      transform: [accumulate]
+      transforms: [accumulate]
 
     - name: v_count_reset_{q}
       source:
         instance: src_int_{q}
-      transform: [accumulate]
+      transforms: [accumulate]
       reset: on_read
 
     - name: v_count_reset2_{q}
       source:
         instance: src_int_{q}
-      transform: [accumulate]
+      transforms: [accumulate]
       reset: on_read
 
 metrics:

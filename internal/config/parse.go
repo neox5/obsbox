@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
@@ -15,7 +16,10 @@ func Parse(path string) (*RawConfig, error) {
 	}
 
 	var raw RawConfig
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true) // Reject unknown fields
+
+	if err := decoder.Decode(&raw); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
