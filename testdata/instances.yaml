@@ -40,7 +40,7 @@ metrics:
     value:
       instance: total_events
     attributes:
-      service: obsbox
+      service: otelbox
       component: test
 
   # Metric 2: References source instance directly, adds reset (shares source, unique value)
@@ -53,7 +53,7 @@ metrics:
       transforms: [accumulate]
       reset: on_read
     attributes:
-      service: obsbox
+      service: otelbox
       component: test
 
   # Metric 3: References different source instance (shares different clock)
@@ -65,7 +65,7 @@ metrics:
         instance: error_source
       transforms: [accumulate]
     attributes:
-      service: obsbox
+      service: otelbox
       component: test
 
   # Metric 4: Inline definition (unique clock and source)
@@ -82,7 +82,7 @@ metrics:
         max: 50
       transforms: [accumulate]
     attributes:
-      service: obsbox
+      service: otelbox
       component: test
 
 export:

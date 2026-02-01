@@ -38,8 +38,7 @@ func New(interval time.Duration, logger *slog.Logger) *Monitor {
 // Run starts the monitoring loop in a background goroutine.
 // Blocks until context is cancelled.
 func (m *Monitor) Run(ctx context.Context) {
-	m.wg.Add(1)
-	go func() {
+	m.wg.Go(func() {
 		defer m.wg.Done()
 
 		ticker := time.NewTicker(m.interval)
@@ -57,7 +56,7 @@ func (m *Monitor) Run(ctx context.Context) {
 				m.collect()
 			}
 		}
-	}()
+	})
 }
 
 // Wait blocks until the monitor goroutine exits.

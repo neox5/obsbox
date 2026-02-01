@@ -1,6 +1,6 @@
-# obsbox
+# otelbox
 
-Telemetry signal generator for testing observability components. obsbox generates coherent metric signals derived from the same underlying data sources, enabling verification of monitoring pipelines, collectors, and transformation logic without requiring live systems.
+Telemetry signal generator for testing observability components. otelbox generates coherent metric signals derived from the same underlying data sources, enabling verification of monitoring pipelines, collectors, and transformation logic without requiring live systems.
 
 Built on [simv](https://github.com/neox5/simv) for guaranteed mathematical consistency between related metrics.
 
@@ -8,12 +8,12 @@ Built on [simv](https://github.com/neox5/simv) for guaranteed mathematical consi
 
 ```bash
 # Run with default configuration
-podman run -p 9090:9090 ghcr.io/neox5/obsbox:latest
+podman run -p 9090:9090 ghcr.io/neox5/otelbox:latest
 
 # Run with custom configuration
 podman run -p 9090:9090 \
   -v $(pwd)/custom-config.yaml:/config/config.yaml:ro \
-  ghcr.io/neox5/obsbox:latest
+  ghcr.io/neox5/otelbox:latest
 ```
 
 Verify it's working:
@@ -27,25 +27,25 @@ curl http://localhost:9090/metrics
 ### Container (Recommended)
 
 ```bash
-podman pull ghcr.io/neox5/obsbox:latest
+podman pull ghcr.io/neox5/otelbox:latest
 ```
 
 ### Binary Releases
 
-Download the latest release for your platform from [GitHub Releases](https://github.com/neox5/obsbox/releases):
+Download the latest release for your platform from [GitHub Releases](https://github.com/neox5/otelbox/releases):
 
 ```bash
 # Linux (amd64)
-wget https://github.com/neox5/obsbox/releases/download/v0.2.0/obsbox-linux-amd64
-chmod +x obsbox-linux-amd64
-./obsbox-linux-amd64 --version
+wget https://github.com/neox5/otelbox/releases/download/v0.1.0/otelbox-linux-amd64
+chmod +x otelbox-linux-amd64
+./otelbox-linux-amd64 --version
 ```
 
 Verify checksums:
 
 ```bash
-wget https://github.com/neox5/obsbox/releases/download/v0.2.0/obsbox-linux-amd64.sha256
-sha256sum -c obsbox-linux-amd64.sha256
+wget https://github.com/neox5/otelbox/releases/download/v0.2.0/otelbox-linux-amd64.sha256
+sha256sum -c otelbox-linux-amd64.sha256
 ```
 
 ### Build from Source
@@ -53,14 +53,14 @@ sha256sum -c obsbox-linux-amd64.sha256
 Requires Go 1.25+:
 
 ```bash
-go install github.com/neox5/obsbox/cmd/obsbox@latest
+go install github.com/neox5/otelbox/cmd/otelbox@latest
 ```
 
 ## Usage
 
 ```
-obsbox -config <path>    Path to configuration file
-obsbox --version         Print version and exit
+otelbox -config <path>    Path to configuration file
+otelbox --version         Print version and exit
 ```
 
 ## Configuration Example

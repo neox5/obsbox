@@ -1,12 +1,12 @@
-BINARY      := obsbox
-CMD_PKG     := ./cmd/obsbox
-MODULE_PATH := github.com/neox5/obsbox
+BINARY      := otelbox
+CMD_PKG     := ./cmd/otelbox
+MODULE_PATH := github.com/neox5/otelbox
 DIST_DIR    := dist
 
 # Container configuration
 IMAGE_REGISTRY  := ghcr.io
 IMAGE_NAMESPACE := neox5
-IMAGE_NAME      := obsbox
+IMAGE_NAME      := otelbox
 IMAGE_TAG       := latest
 
 PLATFORMS := \

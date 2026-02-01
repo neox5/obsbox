@@ -8,7 +8,7 @@ type SettingsConfig struct {
 	InternalMetrics InternalMetricsConfig
 }
 
-// InternalMetricsConfig controls obsbox's self-monitoring metrics.
+// InternalMetricsConfig controls otelbox's self-monitoring metrics.
 type InternalMetricsConfig struct {
 	Enabled bool
 	Format  NamingFormat

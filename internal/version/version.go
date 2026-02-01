@@ -1,4 +1,4 @@
-// Package version holds the obsbox version. It is overridden at build time
+// Package version holds the otelbox version. It is overridden at build time
 // via -ldflags in the Makefile, and falls back to module build metadata.
 package version
 

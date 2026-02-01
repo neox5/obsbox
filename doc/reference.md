@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Detailed parameter reference for obsbox configuration files.
+Detailed parameter reference for otelbox configuration files.
 
 ## File Format
 
@@ -464,7 +464,7 @@ export:
 - `interval` (interval_config, required) - Export intervals
   - See Interval Configuration below
 - `resource` (map[string]string, optional) - Resource attributes
-  - Default: `service.name: obsbox`, `service.version: dev`
+  - Default: `service.name: otelbox`, `service.version: dev`
 - `headers` (map[string]string, optional) - Custom HTTP headers
 
 **Interval Configuration:**
@@ -488,7 +488,7 @@ interval:
 
 **Default Resource Attributes:**
 
-- `service.name` - Default: `obsbox`
+- `service.name` - Default: `otelbox`
 - `service.version` - Default: `dev`
 
 **Transport Types:**
@@ -522,7 +522,7 @@ settings:
 - `seed` (uint64, optional) - Master seed for random number generation
   - When omitted, uses time-based seed (logged at startup)
   - Same seed produces identical value sequences across runs
-- `internal_metrics.enabled` (bool, optional) - Enable obsbox self-monitoring
+- `internal_metrics.enabled` (bool, optional) - Enable otelbox self-monitoring
   - Default: `false`
 - `internal_metrics.format` (string, optional) - Naming convention
   - Values: `native`, `underscore`, `dot`
@@ -531,8 +531,8 @@ settings:
 **Naming Formats:**
 
 - `native` - Use each exporter's native convention
-  - Prometheus: underscore-separated (e.g., `obsbox_metric_name`)
-  - OTEL: dot-separated (e.g., `obsbox.metric.name`)
+  - Prometheus: underscore-separated (e.g., `otelbox_metric_name`)
+  - OTEL: dot-separated (e.g., `otelbox.metric.name`)
 - `underscore` - Force underscore-separated names for all exporters
 - `dot` - Force dot-separated names for all exporters
 

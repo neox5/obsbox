@@ -10,16 +10,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/neox5/obsbox/internal/app"
-	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/monitor"
-	"github.com/neox5/obsbox/internal/version"
+	"github.com/neox5/otelbox/internal/app"
+	"github.com/neox5/otelbox/internal/config"
+	"github.com/neox5/otelbox/internal/monitor"
+	"github.com/neox5/otelbox/internal/version"
 	"github.com/urfave/cli/v3"
 )
 
 func main() {
 	cmd := &cli.Command{
-		Name:    "obsbox",
+		Name:    "otelbox",
 		Usage:   "Telemetry signal generator for testing observability components",
 		Version: version.String(),
 		Flags: []cli.Flag{
@@ -57,7 +57,7 @@ func serve(ctx context.Context, cmd *cli.Command) error {
 	}))
 	slog.SetDefault(logger)
 
-	slog.Info("starting obsbox", "version", version.String(), "config", configPath)
+	slog.Info("starting otelbox", "version", version.String(), "config", configPath)
 
 	// Load configuration
 	slog.Debug("--- Configuration Loading ---")

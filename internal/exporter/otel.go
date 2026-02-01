@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/metric"
+	"github.com/neox5/otelbox/internal/config"
+	"github.com/neox5/otelbox/internal/metric"
 	"github.com/neox5/simv/value"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
@@ -48,7 +48,7 @@ func NewOTELExporter(
 	}
 
 	// Create meter
-	meter := meterProvider.Meter("obsbox")
+	meter := meterProvider.Meter("otelbox")
 
 	// Create exporter
 	e := &OTELExporter{

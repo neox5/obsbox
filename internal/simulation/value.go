@@ -3,7 +3,7 @@ package simulation
 import (
 	"fmt"
 
-	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/otelbox/internal/config"
 	"github.com/neox5/simv/source"
 	"github.com/neox5/simv/transform"
 	"github.com/neox5/simv/value"

@@ -3,8 +3,8 @@ package metric
 import (
 	"fmt"
 
-	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/generator"
+	"github.com/neox5/otelbox/internal/config"
+	"github.com/neox5/otelbox/internal/generator"
 )
 
 // Registry holds protocol-agnostic metric definitions.

@@ -3,11 +3,11 @@ package app
 import (
 	"fmt"
 
-	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/exporter"
-	"github.com/neox5/obsbox/internal/generator"
-	"github.com/neox5/obsbox/internal/metric"
-	"github.com/neox5/obsbox/internal/simulation"
+	"github.com/neox5/otelbox/internal/config"
+	"github.com/neox5/otelbox/internal/exporter"
+	"github.com/neox5/otelbox/internal/generator"
+	"github.com/neox5/otelbox/internal/metric"
+	"github.com/neox5/otelbox/internal/simulation"
 )
 
 // App holds initialized application components.

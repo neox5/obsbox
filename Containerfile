@@ -23,7 +23,7 @@ RUN VERSION=${VERSION} make build-local
 FROM scratch
 
 # OCI labels for metadata and GitHub integration
-LABEL org.opencontainers.image.source="https://github.com/neox5/obsbox"
+LABEL org.opencontainers.image.source="https://github.com/neox5/otelbox"
 LABEL org.opencontainers.image.description="Telemetry signal generator for testing observability components"
 LABEL org.opencontainers.image.licenses="MIT"
 
@@ -31,7 +31,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy binary from dist directory (build-local output location)
-COPY --from=builder /build/dist/obsbox /obsbox
+COPY --from=builder /build/dist/otelbox /otelbox
 
 # Copy default configuration
 COPY examples/default.yaml /config/config.yaml
@@ -43,7 +43,7 @@ USER 65534:65534
 EXPOSE 9090
 
 # Default entrypoint
-ENTRYPOINT ["/obsbox"]
+ENTRYPOINT ["/otelbox"]
 
 # Default config path (override with volume mount)
 CMD ["-config", "/config/config.yaml"]

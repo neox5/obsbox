@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/neox5/obsbox/internal/config"
-	"github.com/neox5/obsbox/internal/simulation"
+	"github.com/neox5/otelbox/internal/config"
+	"github.com/neox5/otelbox/internal/simulation"
 	"github.com/neox5/simv/clock"
 	"github.com/neox5/simv/source"
 )

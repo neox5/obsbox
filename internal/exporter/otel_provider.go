@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/neox5/obsbox/internal/config"
+	"github.com/neox5/otelbox/internal/config"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"

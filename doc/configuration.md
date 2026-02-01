@@ -1,10 +1,10 @@
 # Configuration Guide
 
-Complete guide to configuring obsbox for telemetry signal generation.
+Complete guide to configuring otelbox for telemetry signal generation.
 
 ## Configuration File Structure
 
-obsbox uses YAML configuration files with five main sections:
+otelbox uses YAML configuration files with five main sections:
 
 - **templates** - Reusable definitions with override support
 - **instances** - Named, shared objects
@@ -312,7 +312,7 @@ settings:
 
 #### Internal Metrics
 
-obsbox self-monitoring metrics:
+otelbox self-monitoring metrics:
 
 ```yaml
 settings:
@@ -434,7 +434,7 @@ export:
     port: 4317
     interval: 10s
     resource:
-      service.name: obsbox
+      service.name: otelbox
       service.version: 0.3.0
       deployment.environment: development
 

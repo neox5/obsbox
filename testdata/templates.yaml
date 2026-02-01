@@ -67,7 +67,7 @@ metrics:
     value:
       template: counter_events
     attributes:
-      service: obsbox
+      service: otelbox
 
   # Metric 2: Reference value template with overrides
   - name: events_fast_total
@@ -79,7 +79,7 @@ metrics:
         type: on_read
         value: 100 # Override reset behavior
     attributes:
-      service: obsbox
+      service: otelbox
 
   # Metric 3: Inline value definition
   - name: custom_gauge
@@ -96,7 +96,7 @@ metrics:
       transforms: [accumulate]
       reset: on_read
     attributes:
-      service: obsbox
+      service: otelbox
 
 export:
   prometheus:

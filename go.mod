@@ -1,4 +1,4 @@
-module github.com/neox5/obsbox
+module github.com/neox5/otelbox
 
 go 1.25.5
 

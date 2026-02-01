@@ -6,7 +6,7 @@ type RawSettingsConfig struct {
 	InternalMetrics RawInternalMetricsConfig `yaml:"internal_metrics"`
 }
 
-// RawInternalMetricsConfig controls obsbox's self-monitoring metrics
+// RawInternalMetricsConfig controls otelbox's self-monitoring metrics
 type RawInternalMetricsConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Format  string `yaml:"format"`

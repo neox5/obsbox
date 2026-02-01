@@ -17,7 +17,7 @@ const (
 	DefaultOTELHost         = "localhost"
 	DefaultOTELPortGRPC     = 4317
 	DefaultOTELPortHTTP     = 4318
-	DefaultServiceName      = "obsbox"
+	DefaultServiceName      = "otelbox"
 	DefaultServiceVersion   = "dev"
 )
 
