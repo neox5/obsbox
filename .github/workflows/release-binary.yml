@@ -39,7 +39,7 @@ jobs:
           # Test host-native binary
           HOST_GOOS=$(go env GOOS)
           HOST_GOARCH=$(go env GOARCH)
-          HOST_BIN="dist/obsbox-${HOST_GOOS}-${HOST_GOARCH}"
+          HOST_BIN="dist/otelbox-${HOST_GOOS}-${HOST_GOARCH}"
 
           if [ "$HOST_GOOS" = "windows" ]; then
             HOST_BIN="${HOST_BIN}.exe"

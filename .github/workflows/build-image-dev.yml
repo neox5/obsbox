@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: neox5/obsbox
+  IMAGE_NAME: neox5/otelbox
 
 jobs:
   build-dev-images:
