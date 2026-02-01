@@ -67,11 +67,13 @@ func newCollector(metrics *metric.Registry) *collector {
 			labelPairs[i] = fmt.Sprintf("%s=%s", labelNames[i], labelValues[i])
 		}
 
-		slog.Info("registered prometheus metric",
+		slog.Debug("registered prometheus metric",
 			"name", m.PrometheusName,
 			"type", m.Type,
 			"labels", fmt.Sprintf("%s", labelPairs))
 	}
+
+	slog.Info("registered prometheus metrics", "count", len(descriptors))
 
 	return &collector{descriptors: descriptors}
 }

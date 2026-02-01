@@ -260,12 +260,6 @@ func (g *Generator) getOrCreateValue(valueCfg config.ValueConfig, src source.Pub
 
 // Start begins value generation by starting all unique clocks.
 func (g *Generator) Start() {
-	slog.Debug("starting generator",
-		"clocks", len(g.clocks),
-		"sources", len(g.sources),
-		"values", len(g.values),
-		"metrics", len(g.metricValues))
-
 	// Start each unique clock exactly once
 	for _, clk := range g.clocks {
 		clk.Start()
@@ -274,8 +268,6 @@ func (g *Generator) Start() {
 
 // Stop halts value generation and releases resources.
 func (g *Generator) Stop() {
-	slog.Debug("stopping generator")
-
 	// Stop unique clocks
 	for _, clk := range g.clocks {
 		clk.Stop()

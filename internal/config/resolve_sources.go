@@ -7,8 +7,6 @@ import (
 
 // resolveTemplateSources resolves source templates (may reference clock templates)
 func (r *Resolver) resolveTemplateSources() error {
-	slog.Debug("resolved template sources", "count", len(r.raw.Templates.Sources))
-
 	for _, raw := range r.raw.Templates.Sources {
 		name := raw.Name
 		if err := r.registerName(name, "template source"); err != nil {
@@ -53,8 +51,6 @@ func (r *Resolver) resolveTemplateSources() error {
 
 // resolveInstanceSources resolves source instances (may reference template/instance clocks)
 func (r *Resolver) resolveInstanceSources() error {
-	slog.Debug("resolved instance sources", "count", len(r.raw.Instances.Sources))
-
 	for _, raw := range r.raw.Instances.Sources {
 		name := raw.Name
 		if err := r.registerName(name, "instance source"); err != nil {

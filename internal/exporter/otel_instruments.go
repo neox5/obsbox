@@ -58,13 +58,15 @@ func registerOTELInstruments(e *OTELExporter, metrics *metric.Registry) error {
 		}
 		sort.Strings(attrPairs)
 
-		slog.Info("registered otel metric",
+		slog.Debug("registered otel metric",
 			"name", m.OTELName,
 			"type", m.Type,
 			"attributes", fmt.Sprintf("[%s]", attrPairs))
 	}
 
 	e.instruments = instruments
+
+	slog.Info("registered otel metrics", "count", len(instruments))
 
 	// Register callback
 	if err := registerOTELCallback(e); err != nil {

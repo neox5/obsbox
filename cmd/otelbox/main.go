@@ -60,14 +60,41 @@ func serve(ctx context.Context, cmd *cli.Command) error {
 	slog.Info("starting otelbox", "version", version.String(), "config", configPath)
 
 	// Load configuration
-	slog.Debug("--- Configuration Loading ---")
-	cfg, err := config.Load(configPath)
+	raw, err := config.Parse(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
+	// Log pre-expansion counts
+	slog.Info("configuration parsed",
+		"iterators", len(raw.Iterators),
+		"templates.clocks", len(raw.Templates.Clocks),
+		"templates.sources", len(raw.Templates.Sources),
+		"templates.values", len(raw.Templates.Values),
+		"instances.clocks", len(raw.Instances.Clocks),
+		"instances.sources", len(raw.Instances.Sources),
+		"instances.values", len(raw.Instances.Values),
+		"metrics", len(raw.Metrics))
+
+	// Expand configuration
+	if err = config.Expand(raw); err != nil {
+		return fmt.Errorf("failed to expand config: %w", err)
+	}
+
+	// Resolve configuration
+	cfg, err := config.Resolve(raw)
+	if err != nil {
+		return fmt.Errorf("failed to resolve config: %w", err)
+	}
+
+	// Log post-expansion counts
+	slog.Info("configuration expanded",
+		"clocks", len(cfg.Instances.Clocks),
+		"sources", len(cfg.Instances.Sources),
+		"values", len(cfg.Instances.Values),
+		"metrics", len(cfg.Metrics))
+
 	// Initialize application (handles seed initialization internally)
-	slog.Debug("--- Generator Creation ---")
 	application, err := app.New(cfg)
 	if err != nil {
 		return fmt.Errorf("initialization failed: %w", err)
@@ -87,7 +114,6 @@ func serve(ctx context.Context, cmd *cli.Command) error {
 	defer mon.Wait()
 
 	// Start exporters
-	slog.Debug("--- Exporter Initialization ---")
 	var wg sync.WaitGroup
 	errChan := make(chan error, 2)
 
@@ -107,8 +133,6 @@ func serve(ctx context.Context, cmd *cli.Command) error {
 		})
 	}
 
-	slog.Debug("--- Application Running ---")
-
 	// Wait for shutdown or error
 	select {
 	case err := <-errChan:
@@ -118,7 +142,7 @@ func serve(ctx context.Context, cmd *cli.Command) error {
 		// Graceful shutdown triggered
 	}
 
-	slog.Debug("--- Shutdown Initiated ---")
+	slog.Info("shutting down")
 
 	// Wait for all goroutines to complete
 	// The exporters' Start methods will return when shutdownCtx is cancelled

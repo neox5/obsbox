@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 )
 
@@ -45,11 +44,9 @@ func Resolve(raw *RawConfig) (*Config, error) {
 	// Expansion must happen before calling Resolve
 	// This is enforced by Load() pipeline
 
-	slog.Debug("--- Template and Instance Resolution ---")
 	resolver := newResolver(raw)
 
 	// Clocks (no dependencies)
-	slog.Debug("resolving clocks")
 	if err := resolver.resolveTemplateClocks(); err != nil {
 		return nil, err
 	}
@@ -58,7 +55,6 @@ func Resolve(raw *RawConfig) (*Config, error) {
 	}
 
 	// Sources (depend on clocks)
-	slog.Debug("resolving sources")
 	if err := resolver.resolveTemplateSources(); err != nil {
 		return nil, err
 	}
@@ -67,7 +63,6 @@ func Resolve(raw *RawConfig) (*Config, error) {
 	}
 
 	// Values (depend on sources)
-	slog.Debug("resolving values")
 	if err := resolver.resolveTemplateValues(); err != nil {
 		return nil, err
 	}
@@ -76,13 +71,11 @@ func Resolve(raw *RawConfig) (*Config, error) {
 	}
 
 	// Metrics (depend on values)
-	slog.Debug("resolving metrics")
 	if err := resolver.resolveTemplateMetrics(); err != nil {
 		return nil, err
 	}
 
 	// Phase 3: Metric resolution
-	slog.Debug("--- Metric Resolution ---")
 	metrics, err := resolver.resolveMetrics()
 	if err != nil {
 		return nil, err

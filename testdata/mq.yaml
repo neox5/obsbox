@@ -2,7 +2,7 @@ iterators:
   - name: q
     type: range
     start: 1
-    end: 10
+    end: 2
 
 instances:
   sources:

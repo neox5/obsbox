@@ -26,7 +26,6 @@ func NewExpander(iterators []RawIterator) (*Expander, error) {
 		return nil, fmt.Errorf("failed to build iterator registry: %w", err)
 	}
 
-	slog.Debug("iterator registry built", "count", len(iterators))
 	for _, it := range registry.iterators {
 		slog.Debug("registered iterator", "name", it.Name(), "count", it.Len())
 	}
