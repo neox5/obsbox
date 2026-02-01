@@ -63,7 +63,7 @@ otelbox -config <path>    Path to configuration file
 otelbox --version         Print version and exit
 ```
 
-## Configuration Example
+## Configuration
 
 Minimal configuration generating a single counter metric:
 
@@ -104,79 +104,12 @@ export:
     path: /metrics
 ```
 
-More advanced example with templates and instances:
-
-```yaml
-templates:
-  clocks:
-    tick_1s:
-      type: periodic
-      interval: 1s
-
-  sources:
-    base_events:
-      type: random_int
-      clock:
-        template: tick_1s
-      min: 0
-      max: 100
-
-instances:
-  clocks:
-    main_tick:
-      type: periodic
-      interval: 1s
-
-  sources:
-    shared_source:
-      type: random_int
-      clock:
-        instance: main_tick
-      min: 0
-      max: 50
-
-metrics:
-  # Using shared instance for coherent counter/gauge pair
-  - name: events_total
-    type: counter
-    description: "Total events"
-    value:
-      source:
-        instance: shared_source
-      transforms: [accumulate]
-
-  - name: events_current
-    type: gauge
-    description: "Recent events"
-    value:
-      source:
-        instance: shared_source
-      transforms: [accumulate]
-      reset: on_read
-
-  # Using template with override
-  - name: requests_total
-    type: counter
-    description: "Total requests"
-    value:
-      source:
-        template: base_events
-        max: 200 # Override template value
-      transforms: [accumulate]
-
-export:
-  prometheus:
-    enabled: true
-    port: 9090
-    path: /metrics
-```
-
-See `examples/` directory and documentation for more configuration patterns.
+See [Configuration Guide](doc/configuration.md) for complete documentation and [examples/](examples/) directory for more configuration patterns.
 
 ## Documentation
 
-- [Configuration Guide](doc/configuration.md) - Complete configuration guide with examples and patterns
-- [Configuration Reference](doc/reference.md) - Detailed parameter reference and specifications
+- [Configuration Guide](doc/configuration.md) - How to write configurations
+- [Reference Documentation](doc/reference/) - Complete parameter reference
 
 ## License
 

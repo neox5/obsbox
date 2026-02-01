@@ -1,18 +1,38 @@
 # Configuration Guide
 
-Complete guide to configuring otelbox for telemetry signal generation.
+[← Back to README](../README.md)
+
+Complete guide to understanding and configuring otelbox for telemetry signal generation.
+
+## Overview
+
+otelbox uses YAML configuration files to define how metrics are generated and exposed. The configuration system is built around a few core concepts that work together to provide flexibility and reusability.
+
+**Core Concepts:**
+
+- **Iterators** - Generate multiple similar configurations from patterns
+- **Templates** - Reusable definitions that can be customized when referenced
+- **Instances** - Named, shared objects used identically across references
+- **Metrics** - Map generated values to exposed metrics
+- **Export** - Configure how metrics are exposed (Prometheus/OTEL)
+- **Settings** - Application-level configuration
 
 ## Configuration File Structure
 
-otelbox uses YAML configuration files with five main sections:
+```yaml
+iterators: # Generate configurations from patterns (optional)
+templates: # Reusable definitions with override support (optional)
+instances: # Named, shared objects (optional)
+metrics: # Metric definitions (required)
+export: # Metric exposition configuration (required)
+settings: # Application settings (optional)
+```
 
-- **templates** - Reusable definitions with override support
-- **instances** - Named, shared objects
-- **metrics** - Maps values to exposed metrics
-- **export** - Configures metric exposition (Prometheus, OTEL)
-- **settings** - Application settings
+Only `metrics` and `export` are required. The others are organizational tools for managing complex configurations.
 
-## Simple Example
+→ Full structure: [reference/file-structure.md](reference/file-structure.md)
+
+## Quick Start Example
 
 Minimal configuration generating a single counter metric:
 
@@ -53,143 +73,182 @@ export:
     path: /metrics
 ```
 
-## Configuration Sections
+This creates a counter that increments by 0-10 every second, exposed at `http://localhost:9090/metrics`.
 
-### Templates & Instances
+## Iterators
 
-Templates and instances provide reusable configuration definitions with different characteristics:
+Generate multiple similar configurations from patterns using `{placeholder}` syntax.
 
-**Templates** are reusable definitions that can be referenced with overrides:
+**Two types:**
 
-- Define once, reference many times with variations
-- Override specific fields when referenced
-- Useful for creating variations on common patterns
-- Example: Base source template with different min/max values per metric
+- `range`: Sequential numbers (0, 1, 2, ...)
+- `list`: Explicit values (us, eu, asia, ...)
 
-**Instances** are concrete, named objects that can be shared across references:
+**Example:** Generate 6 queue metrics (2 regions × 3 queues):
 
-- Reference by name without modification
-- Guarantee identical behavior across all references
-- Useful for shared clocks or sources
-- Example: Single clock instance driving multiple sources
+```yaml
+iterators:
+  - name: region
+    type: list
+    values: [us, eu]
+  - name: queue_id
+    type: range
+    start: 1
+    end: 3
 
-#### Templates Section
+instances:
+  sources:
+    queue_{region}_{queue_id}_depth:
+      type: random_int
+      clock:
+        type: periodic
+        interval: 1s
+      min: 0
+      max: 1000
 
-Templates support hierarchical definitions - templates can reference other templates:
+metrics:
+  - name: queue_depth
+    type: gauge
+    description: "Current queue depth"
+    value:
+      source:
+        instance: queue_{region}_{queue_id}_depth
+    attributes:
+      region: "{region}"
+      queue: "QUEUE_{queue_id}"
+```
+
+Expands to 6 metrics with attributes like `{region=us, queue=QUEUE_1}`, `{region=us, queue=QUEUE_2}`, etc.
+
+→ Full syntax: [reference/iterators.md](reference/iterators.md)  
+→ Complete example: [testdata/iterators.yaml](../testdata/iterators.yaml)
+
+## Templates
+
+Templates are reusable configuration definitions that can be customized when referenced.
+
+**Key characteristics:**
+
+- Define once, reference many times
+- Support field overrides when referenced
+- Can reference other templates
+
+**Example:** Create variations from a base pattern:
 
 ```yaml
 templates:
-  clocks:
-    tick_1s:
-      type: periodic
-      interval: 1s
-
-    tick_fast:
-      type: periodic
-      interval: 100ms
-
   sources:
     base_events:
       type: random_int
       clock:
-        template: tick_1s
+        type: periodic
+        interval: 1s
       min: 0
       max: 100
 
-  values:
-    counter_value:
+metrics:
+  - name: low_rate_events
+    type: counter
+    description: "Low rate events"
+    value:
       source:
         template: base_events
+        max: 50 # Override max
       transforms: [accumulate]
 
-  metrics:
-    counter_metric:
-      type: counter
-      value:
-        template: counter_value
-```
-
-**Template References with Overrides:**
-Templates can be referenced and specific fields overridden:
-
-```yaml
-metrics:
-  - name: events_total
+  - name: high_rate_events
     type: counter
-    description: "Total events"
+    description: "High rate events"
     value:
-      template: counter_value
       source:
         template: base_events
-        max: 50 # Override max from template
-    attributes:
-      service: myapp
+        max: 200 # Different override
+      transforms: [accumulate]
 ```
 
-#### Instances Section
+**Override rules:**
 
-Instances define concrete, shareable objects:
+- Only specified fields are overridden
+- Unspecified fields use template values
+- Nested objects can be partially overridden
+
+→ Full syntax: [reference/templates.md](reference/templates.md)  
+→ Complete example: [testdata/templates.yaml](../testdata/templates.yaml)
+
+## Instances
+
+Instances are named, concrete objects that are shared identically across all references. Unlike templates, instances cannot be overridden.
+
+**Key characteristics:**
+
+- Reference by name without modification
+- Guarantee identical behavior across all references
+- No overrides allowed
+
+**When to use instances:**
+
+Use instances when you need mathematical coherence - multiple metrics derived from the exact same underlying data:
 
 ```yaml
 instances:
-  clocks:
-    main_tick:
-      type: periodic
-      interval: 1s
-
-    fast_tick:
-      type: periodic
-      interval: 100ms
-
   sources:
-    event_source:
+    api_requests:
       type: random_int
       clock:
-        instance: main_tick # Reference clock instance
+        type: periodic
+        interval: 1s
       min: 0
       max: 100
 
   values:
-    total_events:
+    total_requests:
       source:
-        instance: event_source # Reference source instance
+        instance: api_requests
       transforms: [accumulate]
-```
 
-**Instance References (No Overrides):**
-Instances are referenced by name and cannot be modified:
+    recent_requests:
+      source:
+        instance: api_requests # Same source - guaranteed coherence
+      transforms: [accumulate]
+      reset: on_read
 
-```yaml
 metrics:
-  - name: events_total
+  - name: requests_total
     type: counter
-    description: "Total events"
     value:
-      instance: total_events # Reference value instance
-    attributes:
-      service: myapp
+      instance: total_requests
+
+  - name: requests_current
+    type: gauge
+    value:
+      instance: recent_requests
 ```
 
-#### Reference Types
+Both metrics derive from the same source, guaranteeing mathematical consistency.
+
+→ Full syntax: [reference/instances.md](reference/instances.md)  
+→ Complete example: [testdata/instances.yaml](../testdata/instances.yaml)
+
+## Reference Types
 
 Configuration fields that reference other objects support three forms:
 
-**1. Instance Reference:**
+**1. Instance reference** - Use shared object by name:
 
 ```yaml
 value:
-  instance: total_events # Reference named instance
+  instance: total_events
 ```
 
-**2. Template Reference (with optional overrides):**
+**2. Template reference** - Use template with optional overrides:
 
 ```yaml
 value:
-  template: counter_value # Reference template
-  reset: on_read # Override reset behavior
+  template: counter_value
+  reset: on_read
 ```
 
-**3. Inline Definition:**
+**3. Inline definition** - Define object directly:
 
 ```yaml
 value:
@@ -203,9 +262,87 @@ value:
   transforms: [accumulate]
 ```
 
-#### Seed
+→ Full details: [reference/file-structure.md](reference/file-structure.md#reference-types)
 
-Optional seed configuration for reproducible simulations:
+## Metrics
+
+Metrics map generated values to exposed telemetry.
+
+**Basic metric:**
+
+```yaml
+metrics:
+  - name: events_total
+    type: counter
+    description: "Total events processed"
+    value:
+      instance: total_events
+    attributes:
+      service: myapp
+      environment: production
+```
+
+**Protocol-specific names:**
+
+```yaml
+metrics:
+  - name:
+      prometheus: app_events_total
+      otel: app.events.total
+    type: counter
+    description: "Total events"
+    value:
+      instance: total_events
+```
+
+**Metric types:**
+
+- `counter` - Monotonically increasing value
+- `gauge` - Value that can increase or decrease
+
+→ Full syntax: [reference/metrics.md](reference/metrics.md)
+
+## Export Configuration
+
+Export configuration determines how metrics are exposed to collectors.
+
+**Prometheus (Pull-based):**
+
+```yaml
+export:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+```
+
+**OTEL (Push-based):**
+
+```yaml
+export:
+  otel:
+    enabled: true
+    transport: grpc
+    host: localhost
+    port: 4317
+    interval: 10s
+    resource:
+      service.name: myapp
+      deployment.environment: production
+```
+
+**Constraints:**
+
+- At least one exporter must be enabled
+- Only one exporter can be enabled at a time
+
+→ Full syntax: [reference/export.md](reference/export.md)
+
+## Settings
+
+Application-level configuration for otelbox behavior.
+
+**Seed for reproducible simulations:**
 
 ```yaml
 settings:
@@ -214,241 +351,22 @@ settings:
 
 When omitted, a time-based seed is used (logged at startup for reproduction).
 
-### Metrics Definition
-
-Maps values to exposed metrics:
+**Internal metrics for self-monitoring:**
 
 ```yaml
-metrics:
-  - name: <metric_name>              # Simple form (same name for both protocols)
-    name:                             # Full form (protocol-specific names)
-      prometheus: <prom_name>
-      otel: <otel_name>
-    type: counter | gauge
-    description: <help_text>
-    value: <value_reference>          # Instance/template reference or inline
-    attributes:                       # Labels (Prometheus) / Attributes (OTEL)
-      <key>: <value>
-```
-
-**Metric Types:**
-
-- `counter` - Monotonically increasing value
-- `gauge` - Value that can increase or decrease
-
-**Naming:**
-
-- Simple form: Same name for Prometheus and OTEL
-- Full form: Protocol-specific names (e.g., `app.events.total` vs `app_events_total`)
-
-**Value References:**
-
-Metrics reference values in three ways:
-
-1. **Instance reference** - Points to named instance
-2. **Template reference** - Uses template with optional overrides
-3. **Inline definition** - Complete value definition in metric
-
-**Attributes:**
-
-- Key-value pairs attached to metric
-- Prometheus: labels
-- OTEL: attributes
-- Keys must match `[a-zA-Z_][a-zA-Z0-9_]*`
-- Cannot start with `__`
-
-### Export Configuration
-
-#### Prometheus
-
-Pull-based HTTP endpoint:
-
-```yaml
-export:
-  prometheus:
-    enabled: true | false
-    port: <port> # Default: 9090
-    path: <path> # Default: /metrics
-```
-
-#### OTEL
-
-Push-based OTLP export:
-
-```yaml
-export:
-  otel:
-    enabled: true | false
-    transport: grpc | http # Default: grpc
-    host: <hostname> # Default: localhost
-    port: <port> # Default: 4317 (grpc), 4318 (http)
-    interval: <duration> # Push interval
-    resource: # Resource attributes
-      <key>: <value>
-    headers: # Optional HTTP headers
-      <key>: <value>
-```
-
-**Transport Types:**
-
-- `grpc` - OTLP over gRPC (default, port 4317)
-- `http` - OTLP over HTTP (port 4318)
-
-**Constraints:**
-
-- Only one exporter can be enabled at a time
-- At least one exporter must be enabled
-
-### Settings
-
-#### Seed
-
-Optional seed for reproducible simulations:
-
-```yaml
-settings:
-  seed: <uint64>
-```
-
-#### Internal Metrics
-
-otelbox self-monitoring metrics:
-
-```yaml
-settings:
-  internal_metrics:
-    enabled: true | false
-    format: native | underscore | dot
-```
-
-**Format:**
-
-- `native` - Each exporter's native convention (underscore for Prometheus, dot for OTEL)
-- `underscore` - Force underscore-separated names
-- `dot` - Force dot-separated names
-
-**Default:** `enabled: false`, `format: native`
-
-## Complete Example
-
-Full-featured configuration showing templates, instances, and inline definitions:
-
-```yaml
-settings:
-  seed: 12345
-
-templates:
-  clocks:
-    tick_1s:
-      type: periodic
-      interval: 1s
-
-  sources:
-    base_events:
-      type: random_int
-      clock:
-        template: tick_1s
-      min: 0
-      max: 100
-
-  values:
-    counter_value:
-      source:
-        template: base_events
-      transforms: [accumulate]
-
-instances:
-  clocks:
-    main_tick:
-      type: periodic
-      interval: 1s
-
-  sources:
-    shared_source:
-      type: random_int
-      clock:
-        instance: main_tick
-      min: 0
-      max: 50
-
-  values:
-    shared_counter:
-      source:
-        instance: shared_source
-      transforms: [accumulate]
-
-metrics:
-  # Metric using instance
-  - name:
-      prometheus: app_events_total
-      otel: app.events.total
-    type: counter
-    description: "Total events from shared instance"
-    value:
-      instance: shared_counter
-    attributes:
-      source: instance
-
-  # Metric using template with overrides
-  - name:
-      prometheus: app_requests_total
-      otel: app.requests.total
-    type: counter
-    description: "Total requests from template"
-    value:
-      template: counter_value
-      source:
-        template: base_events
-        max: 200  # Override max
-    attributes:
-      source: template
-
-  # Metric with inline definition
-  - name:
-      prometheus: app_errors_total
-      otel: app.errors.total
-    type: counter
-    description: "Total errors from inline definition"
-    value:
-      source:
-        type: random_int
-        clock:
-          type: periodic
-          interval: 500ms
-        min: 0
-        max: 10
-      transforms: [accumulate]
-    attributes:
-      source: inline
-
-export:
-  prometheus:
-    enabled: true
-    port: 9090
-    path: /metrics
-
-  otel:
-    enabled: false
-    transport: grpc
-    host: localhost
-    port: 4317
-    interval: 10s
-    resource:
-      service.name: otelbox
-      service.version: 0.3.0
-      deployment.environment: development
-
 settings:
   internal_metrics:
     enabled: true
     format: native
 ```
 
+→ Full syntax: [reference/settings.md](reference/settings.md)
+
 ## Common Patterns
 
 ### Template with Variations
 
-Define a base template and create variations with overrides:
+Create multiple metrics from a base template with different parameters:
 
 ```yaml
 templates:
@@ -467,7 +385,7 @@ metrics:
     value:
       source:
         template: base_load
-        max: 50 # Low load variant
+        max: 50
       transforms: [accumulate]
 
   - name: high_load_total
@@ -475,13 +393,13 @@ metrics:
     value:
       source:
         template: base_load
-        max: 200 # High load variant
+        max: 200
       transforms: [accumulate]
 ```
 
 ### Shared Clock Pattern
 
-Multiple sources share a single clock instance:
+Multiple sources driven by single clock for synchronized updates:
 
 ```yaml
 instances:
@@ -494,14 +412,14 @@ instances:
     source_a:
       type: random_int
       clock:
-        instance: main_tick # Shared clock
+        instance: main_tick
       min: 0
       max: 100
 
     source_b:
       type: random_int
       clock:
-        instance: main_tick # Same clock instance
+        instance: main_tick
       min: 0
       max: 50
 ```
@@ -529,7 +447,7 @@ instances:
 
     recent_events:
       source:
-        instance: events # Same source guarantees coherence
+        instance: events
       transforms: [accumulate]
       reset: on_read
 
@@ -545,53 +463,22 @@ metrics:
       instance: recent_events
 ```
 
+### Iterator-Based Metric Families
+
+Generate metrics for multiple entities using iterators - see [testdata/iterators.yaml](../testdata/iterators.yaml) for complete example.
+
 ### Multiple Independent Update Frequencies
 
-Different metric groups with independent clocks:
+Different metric groups with different update rates - see [testdata/instances.yaml](../testdata/instances.yaml) for complete example.
 
-```yaml
-instances:
-  clocks:
-    fast_tick:
-      type: periodic
-      interval: 100ms
+## Reference Documentation
 
-    slow_tick:
-      type: periodic
-      interval: 5s
+Complete parameter reference for all configuration sections:
 
-  sources:
-    api_requests:
-      type: random_int
-      clock:
-        instance: fast_tick
-      min: 0
-      max: 100
-
-    batch_jobs:
-      type: random_int
-      clock:
-        instance: slow_tick
-      min: 0
-      max: 10
-```
-
-### Inline Definitions for One-Off Metrics
-
-Use inline definitions when metric is unique and won't be reused:
-
-```yaml
-metrics:
-  - name: unique_metric_total
-    type: counter
-    description: "One-off metric"
-    value:
-      source:
-        type: random_int
-        clock:
-          type: periodic
-          interval: 2s
-        min: 0
-        max: 25
-      transforms: [accumulate]
-```
+- [File Structure Reference](reference/file-structure.md) - YAML structure and reference types
+- [Iterators Reference](reference/iterators.md) - Iterator types and expansion
+- [Templates Reference](reference/templates.md) - Template definitions and overrides
+- [Instances Reference](reference/instances.md) - Instance definitions and sharing
+- [Metrics Reference](reference/metrics.md) - Metric parameters and types
+- [Export Reference](reference/export.md) - Prometheus and OTEL configuration
+- [Settings Reference](reference/settings.md) - Application settings
